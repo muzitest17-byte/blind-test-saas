@@ -16,6 +16,8 @@ const DIFFICULTIES = [
   { max: 5, label: 'Maître',        emoji: '🔥', color: '#a855f7' },
 ];
 
+const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 5 };
+
 interface Config { genres: Genre[]; decades: Decade[]; difficulty: number; count: number; qcm: boolean }
 
 export default function FreePlay() {
@@ -219,6 +221,7 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [buzzTime, setBuzzTime] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(30);
   const [finished, setFinished] = useState(false);
   const [finalStars, setFinalStars] = useState<0|1|2|3>(0);
   // QCM state
@@ -260,9 +263,18 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
 
   function play() {
     const a = audioRef.current; if (!a || !previewUrl) return;
+    const limit = DIFFICULTY_TIME[song?.difficulty ?? 1] ?? 30;
+    setTimeLeft(limit);
     a.play(); setIsPlaying(true); setPhase('listening'); setBuzzTime(Date.now());
     if (!useQCM) setTimeout(() => inputRef.current?.focus(), 100);
   }
+
+  useEffect(() => {
+    if (phase !== 'listening') return;
+    if (timeLeft <= 0) { revealSkip(); return; }
+    const t = setTimeout(() => setTimeLeft(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, timeLeft]);
 
   function resolveAnswer(ok: boolean) {
     if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
@@ -422,7 +434,7 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
                   <div className="flex items-center gap-3 mb-5">
                     <span className="text-xs text-white/40 w-7 text-right">0s</span>
                     <div className="flex-1 pbar"><div className="pbar-fill pbar-fill-cyan" style={{ width: '0%' }} /></div>
-                    <span className="text-xs text-white/40 w-7">30s</span>
+                    <span className="text-xs text-white/40 w-12 text-right">{DIFFICULTY_TIME[song?.difficulty ?? 1] ?? 30}s</span>
                   </div>
                   <button onClick={play}
                     className="w-full py-4 font-display text-2xl tracking-wider rounded-2xl text-white transition-all active:scale-95"
@@ -462,12 +474,22 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
                       }} />
                     ))}
                   </div>
-                  {/* Barre de progression */}
-                  <div className="flex items-center gap-3 w-full mb-3">
-                    <span className="text-xs text-white/50 w-7 text-right tabular-nums">{Math.floor(currentTime)}s</span>
-                    <div className="flex-1 pbar"><div className="pbar-fill pbar-fill-cyan" style={{ width: `${(currentTime / 30) * 100}%` }} /></div>
-                    <span className="text-xs text-white/50 w-7 tabular-nums">30s</span>
-                  </div>
+                  {/* Chrono */}
+                  {(() => {
+                    const limit = DIFFICULTY_TIME[song?.difficulty ?? 1] ?? 30;
+                    const pct = (timeLeft / limit) * 100;
+                    const urgent = timeLeft <= 3;
+                    const color = urgent ? '#ef4444' : timeLeft <= 7 ? '#f59e0b' : '#22d3ee';
+                    return (
+                      <div className="w-full mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-white/40 uppercase tracking-widest">Temps</span>
+                          <span className={`text-2xl font-black tabular-nums ${urgent ? 'text-red-400 animate-pulse' : 'text-white'}`}>{timeLeft}s</span>
+                        </div>
+                        <div className="pbar"><div className="pbar-fill" style={{ width: `${pct}%`, background: color, transition: 'width 1s linear, background 0.3s' }} /></div>
+                      </div>
+                    );
+                  })()}
                   <p className="text-cyan-300 text-xs tracking-[0.35em] uppercase font-bold animate-pulse">🎵 Écoute bien…</p>
                 </div>
               )}

@@ -16,7 +16,7 @@ export default function QCMOptions({ options, correctOption, selected, onSelect 
   const revealed = selected !== null;
 
   return (
-    <div className="grid grid-cols-1 gap-2.5">
+    <div className="grid grid-cols-2 gap-2">
       {options.map((opt, i) => {
         const o = OPTS[i];
         const isSelected = selected === opt;
@@ -41,29 +41,29 @@ export default function QCMOptions({ options, correctOption, selected, onSelect 
             key={opt}
             onClick={() => !revealed && onSelect(opt)}
             disabled={revealed}
-            className="flex items-center gap-3 p-3.5 rounded-2xl text-left transition-all duration-200 active:scale-[0.98] w-full"
+            className="flex flex-col gap-1 p-3 rounded-2xl text-left transition-all duration-200 active:scale-[0.98] w-full min-h-[72px] justify-between"
             style={style}
             onMouseEnter={e => { if (!revealed) (e.currentTarget as HTMLElement).style.background = o.hover; }}
             onMouseLeave={e => { if (!revealed) (e.currentTarget as HTMLElement).style.background = o.bg; }}
           >
-            {/* Letter */}
-            <span className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-black"
-                  style={!revealed ? { background: o.lblBg, color: o.lblTxt }
-                       : isCorrect   ? { background: 'rgba(16,185,129,0.25)', color: '#6ee7b7' }
-                       : isSelected  ? { background: 'rgba(239,68,68,0.25)', color: '#fca5a5' }
-                       : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.25)' }}>
-              {o.letter}
-            </span>
-
-            {/* Text */}
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-white text-sm truncate leading-tight">{title}</p>
-              {artist && <p className="text-white/35 text-xs truncate mt-0.5">{artist}</p>}
+            {/* Letter + icon */}
+            <div className="flex items-center justify-between">
+              <span className="w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-black"
+                    style={!revealed ? { background: o.lblBg, color: o.lblTxt }
+                         : isCorrect   ? { background: 'rgba(16,185,129,0.25)', color: '#6ee7b7' }
+                         : isSelected  ? { background: 'rgba(239,68,68,0.25)', color: '#fca5a5' }
+                         : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.25)' }}>
+                {o.letter}
+              </span>
+              {revealed && isCorrect  && <span className="text-emerald-400 text-base">✓</span>}
+              {revealed && isSelected && !isCorrect && <span className="text-red-400 text-base">✗</span>}
             </div>
 
-            {/* Icon */}
-            {revealed && isCorrect  && <span className="text-emerald-400 text-lg flex-shrink-0">✓</span>}
-            {revealed && isSelected && !isCorrect && <span className="text-red-400 text-lg flex-shrink-0">✗</span>}
+            {/* Text */}
+            <div className="min-w-0">
+              <p className="font-semibold text-white text-xs leading-tight line-clamp-2">{title}</p>
+              {artist && <p className="text-white/35 text-[10px] truncate mt-0.5">{artist}</p>}
+            </div>
           </button>
         );
       })}
