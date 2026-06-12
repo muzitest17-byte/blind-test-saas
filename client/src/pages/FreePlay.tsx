@@ -508,6 +508,22 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
                 selected={qcmSelected}
                 onSelect={selectQCM}
               />
+              {phase === 'listening' && (
+                <div className="flex gap-2 pt-1">
+                  <input
+                    ref={inputRef}
+                    value={guess}
+                    onChange={e => setGuess(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && submit()}
+                    placeholder="Ou tape titre / artiste…"
+                    className="flex-1 bg-white/8 border border-white/12 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-cyan-400/50"
+                  />
+                  <button onClick={submit}
+                    className="bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-white font-bold px-5 py-3 rounded-xl transition-all">
+                    OK
+                  </button>
+                </div>
+              )}
               {feedback === 'correct' && (
                 <div className="glass-green rounded-2xl p-3 text-emerald-400 font-black text-center animate-scale-in">
                   ✅ BRAVO ! +100 pts
