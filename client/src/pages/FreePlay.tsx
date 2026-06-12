@@ -504,19 +504,12 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
               /* ── QCM mode ── */
               <div className="glass rounded-3xl p-4 space-y-3">
                 <p className="text-xs text-white/30 uppercase tracking-widest font-semibold">Quelle est cette chanson ?</p>
-                {(phase === 'answered' || timeLeft <= 5) ? (
-                  <QCMOptions
-                    options={qcmOptions}
-                    correctOption={`${song.title} — ${song.artist}`}
-                    selected={qcmSelected}
-                    onSelect={selectQCM}
-                  />
-                ) : (
-                  <div className="text-center py-5">
-                    <p className="text-white/20 text-xs uppercase tracking-widest mb-1">Choix disponibles dans</p>
-                    <p className="font-display text-4xl text-white/60">{timeLeft - 5}s</p>
-                  </div>
-                )}
+                <QCMOptions
+                  options={qcmOptions}
+                  correctOption={`${song.title} — ${song.artist}`}
+                  selected={qcmSelected}
+                  onSelect={selectQCM}
+                />
                 {feedback === 'correct' && (
                   <div className="glass-green rounded-2xl p-3 text-emerald-400 font-black text-center animate-scale-in">
                     ✅ BRAVO ! +100 pts
