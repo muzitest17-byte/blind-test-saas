@@ -304,35 +304,17 @@ export default function CareerGame() {
         {/* Answer */}
         {(phase === 'ready' || phase === 'listening' || phase === 'answered') && song && (
           <div>
-            {useQCM ? (
-              <div className="glass rounded-3xl p-4 space-y-3">
-                <p className="text-xs text-white/30 uppercase tracking-widest font-semibold">Quelle est cette chanson ?</p>
-                <QCMOptions
-                  options={qcmOptions}
-                  correctOption={`${song.title} — ${song.artist}`}
-                  selected={qcmSelected}
-                  onSelect={selectQCM}
-                />
-                {feedback === 'correct' && <div className="glass-green rounded-2xl p-3 text-emerald-400 font-black text-center animate-scale-in">✅ BRAVO ! +100 pts</div>}
-                {feedback === 'wrong'   && <div className="glass-red rounded-2xl p-3 text-red-400 font-black text-center animate-scale-in">❌ DOMMAGE ! −25 pts</div>}
-              </div>
-            ) : (
-              <div className="glass rounded-3xl p-5 space-y-3">
-                <label className="text-xs text-white/30 uppercase tracking-widest font-semibold">Titre ou artiste ?</label>
-                <div className="flex gap-2">
-                  <input ref={inputRef} type="text" value={guess}
-                    onChange={e => setGuess(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && phase === 'listening' && submit()}
-                    placeholder="Tape ta réponse…"
-                    disabled={phase !== 'listening'}
-                    className="flex-1 text-base rounded-2xl px-4 py-3 outline-none transition-all disabled:opacity-40"
-                    style={{ background: '#ffffff', color: '#111111', border: '2px solid rgba(255,255,255,0.3)' }} />
-                  {phase === 'listening' && <button onClick={submit} className="btn-primary px-5">OK</button>}
-                </div>
-                {feedback === 'correct' && <div className="glass-green rounded-2xl p-3 text-emerald-400 font-black text-center animate-scale-in">✅ BRAVO ! +100 pts</div>}
-                {feedback === 'wrong'   && <div className="glass-red rounded-2xl p-3 text-red-400 font-black text-center animate-scale-in">❌ DOMMAGE ! −25 pts</div>}
-              </div>
-            )}
+            <div className="glass rounded-3xl p-4 space-y-3">
+              <p className="text-xs text-white/30 uppercase tracking-widest font-semibold">Quelle est cette chanson ?</p>
+              <QCMOptions
+                options={qcmOptions}
+                correctOption={`${song.title} — ${song.artist}`}
+                selected={qcmSelected}
+                onSelect={selectQCM}
+              />
+              {feedback === 'correct' && <div className="glass-green rounded-2xl p-3 text-emerald-400 font-black text-center animate-scale-in">✅ BRAVO ! +100 pts</div>}
+              {feedback === 'wrong'   && <div className="glass-red rounded-2xl p-3 text-red-400 font-black text-center animate-scale-in">❌ DOMMAGE ! −25 pts</div>}
+            </div>
           </div>
         )}
 
