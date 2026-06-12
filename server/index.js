@@ -135,7 +135,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(code);
     if (!room || room.hostId !== socket.id) return;
     room.status = 'playing';
-    io.to(code).emit('game-started', { total: room.songs.length });
+    io.to(code).emit('game-started', { total: room.songs.length, roomDifficulty: room.difficulty });
     sendNextQuestion(code);
   });
 

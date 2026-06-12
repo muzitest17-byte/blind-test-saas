@@ -9,9 +9,12 @@ import QCMOptions from '../components/QCMOptions';
 type Phase = 'lobby' | 'question' | 'listening' | 'buzzed' | 'revealed' | 'finished';
 type Tab   = 'game' | 'players' | 'qr';
 
+const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 10 };
+
 export default function Host() {
   const { code } = useParams<{ code: string }>();
-  const { state } = useLocation() as { state: { ip: string } };
+  const { state } = useLocation() as { state: { ip: string; difficulty?: number } };
+  const roomDifficulty = state?.difficulty ?? 2;
   const nav = useNavigate();
 
   const [players, setPlayers]               = useState<Player[]>([]);
@@ -39,8 +42,10 @@ export default function Host() {
   const [qcmOptions, setQcmOptions]         = useState<string[]>([]);
   const [qcmSelected, setQcmSelected]       = useState<string | null>(null);
   const [qcmCorrectSong, setQcmCorrectSong] = useState<Song | null>(null);
+  const [timeLeft, setTimeLeft]             = useState(0);
   const prevScore    = useRef(0);
   const autoPlayRef  = useRef(false);
+  const skipFiredRef = useRef(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const joinUrl  = `${window.location.origin}/join/${code}`;
@@ -74,7 +79,9 @@ export default function Host() {
       setTab('game');
       setQcmSelected(null);
       setQcmOptions([]);
+      setTimeLeft(0);
       autoPlayRef.current = false;
+      skipFiredRef.current = false;
       const fullSong = allSongs.find(s => s.id === (song as Song).id);
       if (fullSong) {
         setQcmCorrectSong(fullSong);
@@ -129,12 +136,24 @@ export default function Host() {
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (phase !== 'listening') return;
+    if (timeLeft <= 0) {
+      if (!skipFiredRef.current) { skipFiredRef.current = true; socket.emit('skip-question', { code }); }
+      return;
+    }
+    const t = setTimeout(() => setTimeLeft(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, timeLeft, code]);
+
   function togglePlay() { const a = audioRef.current; if (!a) return; if (isPlaying) { a.pause(); setIsPlaying(false); } else { a.play(); setIsPlaying(true); } }
   function restart()    { const a = audioRef.current; if (!a) return; a.currentTime = 0; a.play(); setIsPlaying(true); }
   function enableBuzz() {
     socket.emit('enable-buzz', { code });
     setPhase('listening');
     autoPlayRef.current = true;
+    skipFiredRef.current = false;
+    setTimeLeft(DIFFICULTY_TIME[roomDifficulty]);
     const a = audioRef.current;
     if (a && previewUrl) { a.play().then(() => setIsPlaying(true)).catch(() => {}); }
   }
@@ -437,7 +456,16 @@ export default function Host() {
                   <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                   <p className="text-emerald-400 font-black text-sm">BUZZEURS ACTIFS</p>
                 </div>
-                <button onClick={skipQ} className="mt-2 px-5 py-2 rounded-xl text-white/30 bg-white/5 border border-white/10 text-sm active:scale-95">
+                {timeLeft > 0 && (
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <span className="font-display text-3xl"
+                          style={{ color: timeLeft <= 5 ? '#f87171' : timeLeft <= 10 ? '#fb923c' : '#6ee7b7',
+                                   textShadow: timeLeft <= 5 ? '0 0 15px rgba(248,113,113,0.6)' : 'none' }}>
+                      {timeLeft}s
+                    </span>
+                  </div>
+                )}
+                <button onClick={() => { skipFiredRef.current = true; skipQ(); }} className="mt-2 px-5 py-2 rounded-xl text-white/30 bg-white/5 border border-white/10 text-sm active:scale-95">
                   Révéler et passer
                 </button>
               </div>

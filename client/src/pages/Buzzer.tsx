@@ -7,6 +7,8 @@ import QCMOptions from '../components/QCMOptions';
 
 type BuzzerState = 'lobby' | 'waiting' | 'ready' | 'buzzed-me' | 'buzzed-other' | 'revealed' | 'finished' | 'wrong';
 
+const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 10 };
+
 export default function Buzzer() {
   const { code }   = useParams<{ code: string }>();
   const nav        = useNavigate();
@@ -21,6 +23,8 @@ export default function Buzzer() {
   const [qcmOptions, setQcmOptions]         = useState<string[]>([]);
   const [qcmSelected, setQcmSelected]       = useState<string | null>(null);
   const [qcmCorrectSong, setQcmCorrectSong] = useState<Song | null>(null);
+  const [timeLeft, setTimeLeft]             = useState(0);
+  const [roomDifficulty, setRoomDifficulty] = useState(2);
   const prevScore     = useRef(0);
   const shouldPlayRef = useRef(false);
   const previewUrlRef = useRef<string | null>(null);
@@ -49,6 +53,13 @@ export default function Buzzer() {
     }
   }, [bstate]);
 
+  useEffect(() => {
+    if (bstate !== 'ready') return;
+    if (timeLeft <= 0) return;
+    const t = setTimeout(() => setTimeLeft(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [bstate, timeLeft]);
+
   const loadPreview = useCallback(async (deezerQuery: string) => {
     previewUrlRef.current = null; setIsPlaying(false);
     try {
@@ -71,11 +82,12 @@ export default function Buzzer() {
       const me = p.find((x: Player) => x.id === socket.id);
       if (me) setMyScore(me.score);
     });
-    socket.on('game-started', () => setBstate('waiting'));
+    socket.on('game-started', ({ roomDifficulty: rd }) => { setBstate('waiting'); if (rd) setRoomDifficulty(rd); });
     socket.on('new-question', ({ index, total, song }) => {
       setQuestion({ index, total, genre: song?.genre, decade: song?.decade });
       setRevealed(null); setBuzzedName(''); setBstate('waiting');
       setQcmSelected(null); setQcmOptions([]);
+      setTimeLeft(0);
       shouldPlayRef.current = false;
       const fullSong = song?.id ? allSongs.find(s => s.id === song.id) : null;
       if (fullSong) {
@@ -87,6 +99,7 @@ export default function Buzzer() {
     socket.on('buzz-enabled', () => {
       setBstate('ready');
       shouldPlayRef.current = true;
+      setTimeLeft(DIFFICULTY_TIME[roomDifficulty]);
       const audio = audioRef.current;
       if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
     });
@@ -197,16 +210,25 @@ export default function Buzzer() {
           </div>
         )}
 
-        {/* EQ indicator */}
-        {isPlaying && (
-          <div className="flex items-end justify-center gap-1 mt-3" style={{ height: 20 }}>
-            {[10,16,22,14,20,12,18].map((h, i) => (
-              <div key={i} className="eq-bar rounded-sm"
-                   style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
-                            background: `linear-gradient(to top, ${gc}99, ${gc})` }} />
-            ))}
-          </div>
-        )}
+        {/* EQ + timer */}
+        <div className="flex items-center justify-between mt-3">
+          {isPlaying ? (
+            <div className="flex items-end gap-1" style={{ height: 20 }}>
+              {[10,16,22,14,20,12,18].map((h, i) => (
+                <div key={i} className="eq-bar rounded-sm"
+                     style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
+                              background: `linear-gradient(to top, ${gc}99, ${gc})` }} />
+              ))}
+            </div>
+          ) : <div />}
+          {timeLeft > 0 && (
+            <span className="font-display text-2xl tabular-nums"
+                  style={{ color: timeLeft <= 5 ? '#f87171' : timeLeft <= 10 ? '#fb923c' : '#6ee7b7',
+                           textShadow: timeLeft <= 5 ? '0 0 12px rgba(248,113,113,0.7)' : 'none' }}>
+              {timeLeft}s
+            </span>
+          )}
+        </div>
       </div>
 
       {/* QCM */}

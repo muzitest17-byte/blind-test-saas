@@ -16,7 +16,7 @@ const DIFFICULTIES = [
   { max: 5, label: 'Maître',        emoji: '🔥', color: '#a855f7' },
 ];
 
-const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 5 };
+const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 10 };
 
 interface Config { genres: Genre[]; decades: Decade[]; difficulty: number; count: number; qcm: boolean }
 

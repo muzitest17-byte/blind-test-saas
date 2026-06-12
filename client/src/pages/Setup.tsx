@@ -37,7 +37,7 @@ export default function Setup() {
     socket.connect();
     socket.emit('create-room', { difficulty, genres, questionCount: qCount, songs: picked }, (res: { code: string; ip: string }) => {
       setLoading(false);
-      nav(`/host/${res.code}`, { state: { ip: res.ip } });
+      nav(`/host/${res.code}`, { state: { ip: res.ip, difficulty } });
     });
   }
 
