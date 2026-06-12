@@ -34,10 +34,25 @@ const MODES = [
 ];
 
 const STATS = [
-  { n: '460', label: 'chansons' },
+  { n: '2618', label: 'chansons' },
   { n: '19', label: 'genres' },
   { n: '9', label: 'décennies' },
   { n: '11', label: 'campagnes' },
+];
+
+const NOTES = [
+  { sym: '♩', top: 8,  left: 5,  size: 48, rot: -15, delay: 0 },
+  { sym: '♪', top: 15, left: 88, size: 36, rot: 10,  delay: 0.6 },
+  { sym: '♫', top: 35, left: 3,  size: 56, rot: -8,  delay: 1.2 },
+  { sym: '♬', top: 55, left: 92, size: 44, rot: 20,  delay: 0.3 },
+  { sym: '♩', top: 72, left: 7,  size: 32, rot: 12,  delay: 0.9 },
+  { sym: '🎵', top: 20, left: 50, size: 28, rot: -5,  delay: 1.5 },
+  { sym: '♪', top: 80, left: 80, size: 52, rot: -18, delay: 0.4 },
+  { sym: '♫', top: 60, left: 45, size: 38, rot: 8,   delay: 1.1 },
+  { sym: '🎶', top: 42, left: 75, size: 34, rot: -12, delay: 0.7 },
+  { sym: '♬', top: 90, left: 30, size: 46, rot: 15,  delay: 1.8 },
+  { sym: '♩', top: 5,  left: 65, size: 30, rot: -20, delay: 2.0 },
+  { sym: '🎵', top: 70, left: 20, size: 42, rot: 5,   delay: 0.2 },
 ];
 
 export default function Home() {
@@ -54,9 +69,21 @@ export default function Home() {
              style={{ background: 'radial-gradient(circle, rgba(236,72,153,0.28) 0%, transparent 65%)' }} />
         <div className="absolute top-[30%] right-[10%] w-[400px] h-[400px] rounded-full"
              style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.22) 0%, transparent 65%)' }} />
-        {/* Grid lines */}
-        <div className="absolute inset-0 opacity-[0.07]"
-             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '80px 80px' }} />
+        {/* Notes musicales flottantes */}
+        {NOTES.map((n, i) => (
+          <span key={i} className="absolute select-none"
+                style={{
+                  top: `${n.top}%`, left: `${n.left}%`,
+                  fontSize: n.size,
+                  opacity: 0.07,
+                  transform: `rotate(${n.rot}deg)`,
+                  animation: `note-float 4s ease-in-out infinite`,
+                  animationDelay: `${n.delay}s`,
+                  color: ['#c084fc','#22d3ee','#f472b6','#a78bfa'][i % 4],
+                }}>
+            {n.sym}
+          </span>
+        ))}
       </div>
 
       {/* ── Hero ── */}
@@ -73,11 +100,12 @@ export default function Home() {
 
         {/* Title */}
         <h1 className="font-display leading-none mb-2" style={{ fontSize: 'clamp(4.5rem, 15vw, 10rem)' }}>
-          <span className="shimmer">BLIND</span>
-          <span className="text-white"> TEST</span>
+          <span style={{ background: 'linear-gradient(135deg, #f472b6, #c084fc, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>BLIND</span>
+          <span style={{ background: 'linear-gradient(135deg, #22d3ee, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> TEST</span>
         </h1>
-        <p className="text-white/55 text-sm tracking-[0.35em] uppercase font-medium">
-          Musical · Domaine public — 2024
+        <p className="text-sm tracking-[0.35em] uppercase font-medium"
+           style={{ background: 'linear-gradient(90deg, #f472b6, #c084fc, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          🎵 Musical · 2618 chansons · 9 décennies
         </p>
       </div>
 
@@ -159,6 +187,7 @@ export default function Home() {
 
       <style>{`
         @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
+        @keyframes note-float { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-18px) rotate(var(--r,0deg)); } }
       `}</style>
     </div>
   );
