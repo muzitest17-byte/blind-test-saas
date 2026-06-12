@@ -3,7 +3,8 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { socket } from '../socket';
 import type { Player, Song } from '../types';
-import { genreLabels, genreColors, decadeLabels } from '../data/songs';
+import { genreLabels, genreColors, decadeLabels, songs as allSongs, generateOptions } from '../data/songs';
+import QCMOptions from '../components/QCMOptions';
 
 type Phase = 'lobby' | 'question' | 'listening' | 'buzzed' | 'revealed' | 'finished';
 type Tab   = 'game' | 'players' | 'qr';
@@ -35,7 +36,11 @@ export default function Host() {
   const [myBuzzed, setMyBuzzed]             = useState(false); // j'ai buzzé
   const [myDelta, setMyDelta]               = useState<number | null>(null);
   const [myScore, setMyScore]               = useState(0);
-  const prevScore = useRef(0);
+  const [qcmOptions, setQcmOptions]         = useState<string[]>([]);
+  const [qcmSelected, setQcmSelected]       = useState<string | null>(null);
+  const [qcmCorrectSong, setQcmCorrectSong] = useState<Song | null>(null);
+  const prevScore    = useRef(0);
+  const autoPlayRef  = useRef(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const joinUrl  = `${window.location.origin}/join/${code}`;
@@ -67,7 +72,18 @@ export default function Host() {
       setRevealedSong(null);
       setMyBuzzed(false);
       setTab('game');
-      loadPreview(song as Song);
+      setQcmSelected(null);
+      setQcmOptions([]);
+      autoPlayRef.current = false;
+      const fullSong = allSongs.find(s => s.id === (song as Song).id);
+      if (fullSong) {
+        setQcmCorrectSong(fullSong);
+        setQcmOptions(generateOptions(fullSong, allSongs));
+        // Use local deezerQuery if server sent stripped song (hostIsPlayer mode)
+        loadPreview((song as Song).deezerQuery ? (song as Song) : fullSong);
+      } else {
+        loadPreview(song as Song);
+      }
     });
     socket.on('buzz-enabled', () => setPhase('listening'));
     socket.on('player-buzzed', ({ playerId, playerName }) => {
@@ -107,12 +123,21 @@ export default function Host() {
     audio.src = previewUrl; audio.volume = volume;
     const onTime = () => setCurrentTime(audio.currentTime);
     audio.addEventListener('timeupdate', onTime);
+    if (autoPlayRef.current) {
+      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
     return () => audio.removeEventListener('timeupdate', onTime);
   }, [previewUrl]);
 
   function togglePlay() { const a = audioRef.current; if (!a) return; if (isPlaying) { a.pause(); setIsPlaying(false); } else { a.play(); setIsPlaying(true); } }
   function restart()    { const a = audioRef.current; if (!a) return; a.currentTime = 0; a.play(); setIsPlaying(true); }
-  function enableBuzz() { socket.emit('enable-buzz', { code }); setPhase('listening'); const a = audioRef.current; if (a && previewUrl) { a.play(); setIsPlaying(true); } }
+  function enableBuzz() {
+    socket.emit('enable-buzz', { code });
+    setPhase('listening');
+    autoPlayRef.current = true;
+    const a = audioRef.current;
+    if (a && previewUrl) { a.play().then(() => setIsPlaying(true)).catch(() => {}); }
+  }
   function markCorrect(){ socket.emit('answer-result', { code, correct: true }); }
   function markWrong()  { socket.emit('answer-result', { code, correct: false }); }
   function skipQ()      { socket.emit('skip-question', { code }); }
@@ -323,6 +348,19 @@ export default function Host() {
                 <span className="text-5xl">🔔</span>
                 <span className="font-display text-white text-2xl tracking-widest">BUZZ</span>
               </button>
+            )}
+
+            {/* QCM pour le host qui joue aussi */}
+            {(phase === 'listening' || phase === 'buzzed') && hostIsPlayer && qcmOptions.length > 0 && (
+              <div>
+                <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-2">Tes choix</p>
+                <QCMOptions
+                  options={qcmOptions}
+                  correctOption={qcmCorrectSong ? `${qcmCorrectSong.title} — ${qcmCorrectSong.artist}` : ''}
+                  selected={qcmSelected}
+                  onSelect={setQcmSelected}
+                />
+              </div>
             )}
 
             {/* Audio player */}

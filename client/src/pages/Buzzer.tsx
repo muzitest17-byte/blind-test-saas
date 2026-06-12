@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { socket } from '../socket';
-import type { Player } from '../types';
-import { genreLabels, genreColors, decadeLabels } from '../data/songs';
+import type { Player, Song } from '../types';
+import { genreLabels, genreColors, decadeLabels, songs as allSongs, generateOptions } from '../data/songs';
+import QCMOptions from '../components/QCMOptions';
 
 type BuzzerState = 'lobby' | 'waiting' | 'ready' | 'buzzed-me' | 'buzzed-other' | 'revealed' | 'finished' | 'wrong';
 
@@ -14,10 +15,17 @@ export default function Buzzer() {
   const [question, setQuestion] = useState<{ index: number; total: number; genre?: string; decade?: string } | null>(null);
   const [revealed, setRevealed] = useState<{ title: string; artist: string; year: number } | null>(null);
   const [buzzedName, setBuzzedName] = useState('');
-  const [myScore, setMyScore]   = useState(0);
-  const [delta, setDelta]       = useState<number | null>(null);
-  const prevScore = useRef(0);
-  const wakeLock  = useRef<WakeLockSentinel | null>(null);
+  const [myScore, setMyScore]     = useState(0);
+  const [delta, setDelta]         = useState<number | null>(null);
+  const [isPlaying, setIsPlaying]           = useState(false);
+  const [qcmOptions, setQcmOptions]         = useState<string[]>([]);
+  const [qcmSelected, setQcmSelected]       = useState<string | null>(null);
+  const [qcmCorrectSong, setQcmCorrectSong] = useState<Song | null>(null);
+  const prevScore     = useRef(0);
+  const shouldPlayRef = useRef(false);
+  const previewUrlRef = useRef<string | null>(null);
+  const audioRef      = useRef<HTMLAudioElement>(null);
+  const wakeLock     = useRef<WakeLockSentinel | null>(null);
 
   /* Empêche l'écran de s'éteindre */
   useEffect(() => {
@@ -31,6 +39,32 @@ export default function Buzzer() {
     };
   }, []);
 
+  // Re-apply audio src after bstate change (new <audio> element mounts)
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !previewUrlRef.current) return;
+    audio.src = previewUrlRef.current; audio.volume = 0.8;
+    if (shouldPlayRef.current && (bstate === 'ready')) {
+      audio.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  }, [bstate]);
+
+  const loadPreview = useCallback(async (deezerQuery: string) => {
+    previewUrlRef.current = null; setIsPlaying(false);
+    try {
+      const r = await fetch(`/api/preview?q=${encodeURIComponent(deezerQuery)}`);
+      const d = await r.json();
+      previewUrlRef.current = d.preview || null;
+      const audio = audioRef.current;
+      if (audio && previewUrlRef.current) {
+        audio.src = previewUrlRef.current; audio.volume = 0.8;
+        if (shouldPlayRef.current) {
+          audio.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+      }
+    } catch { previewUrlRef.current = null; }
+  }, []);
+
   useEffect(() => {
     socket.on('room-update', ({ players: p }) => {
       setPlayers(p);
@@ -41,11 +75,25 @@ export default function Buzzer() {
     socket.on('new-question', ({ index, total, song }) => {
       setQuestion({ index, total, genre: song?.genre, decade: song?.decade });
       setRevealed(null); setBuzzedName(''); setBstate('waiting');
+      setQcmSelected(null); setQcmOptions([]);
+      shouldPlayRef.current = false;
+      const fullSong = song?.id ? allSongs.find(s => s.id === song.id) : null;
+      if (fullSong) {
+        setQcmCorrectSong(fullSong);
+        setQcmOptions(generateOptions(fullSong, allSongs));
+        loadPreview(fullSong.deezerQuery);
+      }
     });
-    socket.on('buzz-enabled', () => setBstate('ready'));
+    socket.on('buzz-enabled', () => {
+      setBstate('ready');
+      shouldPlayRef.current = true;
+      const audio = audioRef.current;
+      if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
+    });
     socket.on('player-buzzed', ({ playerId, playerName }) => {
       if (playerId === socket.id) { setBstate('buzzed-me'); vibrate(200); }
       else { setBuzzedName(playerName); setBstate('buzzed-other'); }
+      audioRef.current?.pause(); setIsPlaying(false);
     });
     socket.on('answer-correct', ({ playerId, players: p }) => {
       const me = p.find((x: Player) => x.id === socket.id);
@@ -61,7 +109,17 @@ export default function Buzzer() {
       if (me) { setMyScore(me.score); prevScore.current = me.score; }
       if (playerId === socket.id) {
         vibrate([80, 60, 80]);
-        setBstate('wrong'); setTimeout(() => setBstate('ready'), 2000);
+        setBstate('wrong');
+        setTimeout(() => {
+          setBstate('ready');
+          shouldPlayRef.current = true;
+          const audio = audioRef.current;
+          if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
+        }, 2000);
+      } else {
+        shouldPlayRef.current = true;
+        const audio = audioRef.current;
+        if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
       }
     });
     socket.on('reveal-answer', ({ song, players: p }) => {
@@ -72,7 +130,7 @@ export default function Buzzer() {
     socket.on('game-finished', ({ players: p }) => { setPlayers(p); setBstate('finished'); });
     socket.on('host-left', () => nav('/'));
     return () => ['room-update','game-started','new-question','buzz-enabled','player-buzzed','answer-correct','answer-wrong','reveal-answer','game-finished','host-left'].forEach(e => socket.off(e));
-  }, [nav]);
+  }, [nav, loadPreview]);
 
   const doBuzz = useCallback(() => {
     if (bstate !== 'ready') return;
@@ -106,8 +164,9 @@ export default function Buzzer() {
   // ── WAITING ────────────────────────────────────────────────────────────
   if (bstate === 'waiting') return (
     <FullScreen bg="#08090f">
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
       {question && (
-        <div className="px-5 py-3 rounded-2xl text-center mb-8"
+        <div className="px-5 py-3 rounded-2xl text-center mb-6"
              style={{ background: `${gc}12`, border: `1px solid ${gc}30` }}>
           <p className="text-white/25 text-xs mb-0.5">Question {question.index}/{question.total}</p>
           {question.genre && <p className="font-bold text-sm" style={{ color: gc }}>{genreLabels[question.genre]}</p>}
@@ -117,52 +176,76 @@ export default function Buzzer() {
       <div className="vinyl vinyl-spin mb-5" style={{ width: 100, height: 100 }}>
         <div className="vinyl-center" />
       </div>
-      <p className="text-white/30 animate-pulse text-lg">🎵 Écoute…</p>
+      <p className="text-white/30 animate-pulse text-lg">🎵 En attente…</p>
       <ScoreBadge score={myScore} delta={delta} />
     </FullScreen>
   );
 
-  // ── READY — le bouton occupe tout l'écran ──────────────────────────────
+  // ── READY — audio + QCM + buzz ────────────────────────────────────────
   if (bstate === 'ready') return (
-    <button
-      onPointerDown={doBuzz}
-      className="min-h-screen w-full flex flex-col items-center justify-center select-none active:scale-95 transition-transform duration-100"
-      style={{
-        touchAction: 'none',
-        background: 'radial-gradient(ellipse at 50% 70%, rgba(220,38,38,0.18), #08090f 65%)',
-        WebkitTapHighlightColor: 'transparent',
-      }}>
+    <div className="min-h-screen flex flex-col select-none"
+         style={{ background: 'radial-gradient(ellipse at 50% 70%, rgba(220,38,38,0.12), #08090f 65%)' }}>
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
 
-      {question && (
-        <div className="mb-10 px-5 py-2.5 rounded-2xl text-center pointer-events-none"
-             style={{ background: `${gc}15`, border: `1px solid ${gc}30` }}>
-          <p className="text-xs text-white/25">Question {question.index}/{question.total}</p>
-          {question.genre && <p className="font-bold text-sm" style={{ color: gc }}>{genreLabels[question.genre]}</p>}
+      {/* Header */}
+      <div className="p-4 pt-6">
+        {question && (
+          <div className="px-4 py-2.5 rounded-2xl text-center"
+               style={{ background: `${gc}15`, border: `1px solid ${gc}30` }}>
+            <p className="text-xs text-white/25">Question {question.index}/{question.total}</p>
+            {question.genre && <p className="font-bold text-sm" style={{ color: gc }}>{genreLabels[question.genre]}</p>}
+          </div>
+        )}
+
+        {/* EQ indicator */}
+        {isPlaying && (
+          <div className="flex items-end justify-center gap-1 mt-3" style={{ height: 20 }}>
+            {[10,16,22,14,20,12,18].map((h, i) => (
+              <div key={i} className="eq-bar rounded-sm"
+                   style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
+                            background: `linear-gradient(to top, ${gc}99, ${gc})` }} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* QCM */}
+      {qcmOptions.length > 0 && (
+        <div className="flex-1 px-4 pb-2">
+          <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-2">Tes choix</p>
+          <QCMOptions
+            options={qcmOptions}
+            correctOption={qcmCorrectSong ? `${qcmCorrectSong.title} — ${qcmCorrectSong.artist}` : ''}
+            selected={qcmSelected}
+            onSelect={setQcmSelected}
+          />
         </div>
       )}
 
-      {/* Bouton buzzer — plein écran */}
-      <div className="relative pointer-events-none">
-        <div className="buzzer-ring" />
-        <div className="buzzer-ring" style={{ animationDelay: '0.5s' }} />
-        <div className="buzzer flex flex-col items-center justify-center">
-          <span className="text-6xl mb-2 drop-shadow-2xl">🔔</span>
-          <span className="font-display text-white text-3xl tracking-widest drop-shadow-lg">BUZZ</span>
-        </div>
-      </div>
-
-      <p className="mt-12 text-white/20 text-sm tracking-wider pointer-events-none">
-        Appuie dès que tu reconnais !
-      </p>
-      <div className="pointer-events-none">
+      {/* Buzz button */}
+      <div className="px-4 pb-6 pt-2">
+        <button
+          onPointerDown={doBuzz}
+          className="w-full py-7 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform duration-100"
+          style={{
+            touchAction: 'none',
+            WebkitTapHighlightColor: 'transparent',
+            background: 'radial-gradient(ellipse at 50% 60%, rgba(220,38,38,0.25), rgba(220,38,38,0.06))',
+            border: '2px solid rgba(220,38,38,0.5)',
+            boxShadow: '0 0 30px rgba(220,38,38,0.25)',
+          }}>
+          <span className="text-5xl">🔔</span>
+          <span className="font-display text-white text-2xl tracking-widest">BUZZ</span>
+        </button>
         <ScoreBadge score={myScore} delta={delta} />
       </div>
-    </button>
+    </div>
   );
 
   // ── BUZZÉ MOI ──────────────────────────────────────────────────────────
   if (bstate === 'buzzed-me') return (
     <FullScreen bg="radial-gradient(ellipse at 50% 40%, #2d0f00, #08090f 70%)">
+      <audio ref={audioRef} />
       <div className="relative mb-6">
         <div className="w-44 h-44 rounded-full border-2 border-orange-400/60 flex items-center justify-center"
              style={{ background: 'rgba(251,146,60,0.12)', boxShadow: '0 0 60px rgba(251,146,60,0.4), 0 0 120px rgba(251,146,60,0.15)' }}>
@@ -182,6 +265,7 @@ export default function Buzzer() {
   // ── BUZZÉ AUTRE ────────────────────────────────────────────────────────
   if (bstate === 'buzzed-other') return (
     <FullScreen bg="#08090f">
+      <audio ref={audioRef} />
       <span className="text-7xl mb-5 opacity-25">🔇</span>
       <h2 className="font-display text-5xl text-white mb-2">{buzzedName}</h2>
       <p className="text-white/30 text-lg">a buzzé en premier…</p>
@@ -192,6 +276,7 @@ export default function Buzzer() {
   // ── MAUVAISE RÉPONSE ───────────────────────────────────────────────────
   if (bstate === 'wrong') return (
     <FullScreen bg="radial-gradient(ellipse at 50% 40%, #1a0000, #08090f 70%)">
+      <audio ref={audioRef} />
       <span className="text-8xl mb-4 pop">❌</span>
       <h2 className="font-display text-7xl mb-2"
           style={{ color: '#f87171', textShadow: '0 0 30px rgba(239,68,68,0.6)' }}>
@@ -205,17 +290,28 @@ export default function Buzzer() {
   // ── RÉPONSE RÉVÉLÉE ────────────────────────────────────────────────────
   if (bstate === 'revealed' && revealed) return (
     <FullScreen bg="#08090f">
+      <audio ref={audioRef} />
       <div className="vinyl mb-5" style={{ width: 80, height: 80, opacity: 0.5 }}>
         <div className="vinyl-center" />
       </div>
-      <p className="text-white/25 text-xs uppercase tracking-widest mb-4">C'était…</p>
-      <h2 className="font-display text-5xl text-white text-center px-5 mb-2"
+      <p className="text-white/25 text-xs uppercase tracking-widest mb-3">C'était…</p>
+      <h2 className="font-display text-5xl text-white text-center px-5 mb-1"
           style={{ textShadow: '0 0 30px rgba(139,92,246,0.5)' }}>
         {revealed.title}
       </h2>
       <p className="text-purple-300 font-semibold text-xl">{revealed.artist}</p>
       <p className="text-white/20 mt-1">{revealed.year}</p>
-      <p className="text-white/10 text-xs mt-8 animate-pulse">Prochaine question…</p>
+      {qcmOptions.length > 0 && (
+        <div className="w-full max-w-sm mt-5 px-4">
+          <QCMOptions
+            options={qcmOptions}
+            correctOption={`${revealed.title} — ${revealed.artist}`}
+            selected={qcmSelected ?? `${revealed.title} — ${revealed.artist}`}
+            onSelect={() => {}}
+          />
+        </div>
+      )}
+      <p className="text-white/10 text-xs mt-5 animate-pulse">Prochaine question…</p>
       <ScoreBadge score={myScore} delta={delta} />
     </FullScreen>
   );
