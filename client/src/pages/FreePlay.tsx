@@ -498,7 +498,7 @@ function Game({ config, onRestart, onHome }: { config: Config; onRestart: () => 
         </div>
 
         {/* Answer */}
-        {(phase === 'listening' || phase === 'answered') && song && (
+        {(phase === 'ready' || phase === 'listening' || phase === 'answered') && song && (
           <div className="space-y-3">
             {useQCM ? (
               /* ── QCM mode ── */

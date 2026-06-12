@@ -302,7 +302,7 @@ export default function CareerGame() {
         </div>
 
         {/* Answer */}
-        {(phase === 'listening' || phase === 'answered') && song && (
+        {(phase === 'ready' || phase === 'listening' || phase === 'answered') && song && (
           <div>
             {useQCM ? (
               <div className="glass rounded-3xl p-4 space-y-3">
