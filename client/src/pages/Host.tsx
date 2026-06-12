@@ -38,7 +38,7 @@ export default function Host() {
   const prevScore = useRef(0);
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const joinUrl  = `http://${state?.ip || 'localhost'}:5174/join/${code}`;
+  const joinUrl  = `${window.location.origin}/join/${code}`;
 
   const loadPreview = useCallback(async (song: Song) => {
     if (!song.deezerQuery) return; // joueurs ne reçoivent pas deezerQuery
