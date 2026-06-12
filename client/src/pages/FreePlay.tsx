@@ -25,7 +25,7 @@ export default function FreePlay() {
   const location = useLocation();
   const [mode, setMode] = useState<'config' | 'game'>(location.state?.restart ? 'game' : 'config');
   const [config, setConfig] = useState<Config>(
-    location.state?.config ?? { genres: [], decades: [], difficulty: 2, count: 10, qcm: false }
+    location.state?.config ?? { genres: [], decades: [], difficulty: 2, count: 10, qcm: true }
   );
 
   if (mode === 'config') return (

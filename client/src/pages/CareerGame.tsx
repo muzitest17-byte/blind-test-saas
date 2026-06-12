@@ -30,7 +30,7 @@ export default function CareerGame() {
   const [finished, setFinished] = useState(false);
   const [finalStars, setFinalStars] = useState<0|1|2|3>(0);
   const [buzzTime, setBuzzTime] = useState(0);
-  const [useQCM, setUseQCM] = useState(false);
+  const [useQCM, setUseQCM] = useState(true);
   const [qcmOptions, setQcmOptions] = useState<string[]>([]);
   const [qcmSelected, setQcmSelected] = useState<string | null>(null);
 
