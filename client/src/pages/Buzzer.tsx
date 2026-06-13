@@ -298,11 +298,21 @@ export default function Buzzer() {
 
   // ── BUZZÉ AUTRE ────────────────────────────────────────────────────────
   if (bstate === 'buzzed-other') return (
-    <FullScreen bg="#08090f">
+    <FullScreen bg="radial-gradient(ellipse at 50% 35%, #1a1200, #08090f 70%)">
       <audio ref={audioRef} />
-      <span className="text-7xl mb-5 opacity-25">🔇</span>
-      <h2 className="font-display text-5xl text-white mb-2">{buzzedName}</h2>
-      <p className="text-white/30 text-lg">a buzzé en premier…</p>
+      <div className="relative mb-5">
+        <div className="w-36 h-36 rounded-full border-2 border-yellow-400/60 flex items-center justify-center"
+             style={{ background: 'rgba(250,204,21,0.12)', boxShadow: '0 0 60px rgba(250,204,21,0.35), 0 0 120px rgba(250,204,21,0.12)' }}>
+          <span className="text-6xl">🔔</span>
+        </div>
+        <div className="absolute inset-0 rounded-full border border-yellow-400/40 animate-ping" />
+      </div>
+      <h2 className="font-display text-5xl text-center px-4 mb-2"
+          style={{ color: '#fde047', textShadow: '0 0 40px rgba(250,204,21,0.6)' }}>
+        {buzzedName}
+      </h2>
+      <p className="text-white/40 text-xl font-bold tracking-wide">A BUZZÉ !</p>
+      <p className="text-white/20 text-sm mt-3 animate-pulse">En attente de sa réponse…</p>
       <ScoreBadge score={myScore} delta={delta} />
     </FullScreen>
   );
