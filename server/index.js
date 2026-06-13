@@ -246,29 +246,22 @@ io.on('connection', (socket) => {
     room.canBuzz = false;
     room.status = 'question';
 
-    // Host reçoit le titre complet (sauf s'il joue aussi — il reçoit alors la version joueur)
-    if (room.hostIsPlayer) {
-      io.to(room.hostId).emit('new-question', {
-        song: { id: song.id, genre: song.genre, decade: song.decade, difficulty: song.difficulty },
-        index: room.currentQuestion + 1,
-        total: room.songs.length,
-      });
-    } else {
-      io.to(room.hostId).emit('new-question', {
-        song,
-        index: room.currentQuestion + 1,
-        total: room.songs.length,
-      });
-    }
-
-    // Joueurs reçoivent seulement genre + décennie
-    room.players.forEach(p => {
-      io.to(p.id).emit('new-question', {
-        song: { id: song.id, genre: song.genre, decade: song.decade, difficulty: song.difficulty },
-        index: room.currentQuestion + 1,
-        total: room.songs.length,
-      });
+    // Tous les joueurs (y compris l'hôte s'il joue) reçoivent la version joueur
+    io.to(code).emit('new-question', {
+      song: { id: song.id, genre: song.genre, decade: song.decade, difficulty: song.difficulty },
+      index: room.currentQuestion + 1,
+      total: room.songs.length,
     });
+
+    // Auto-activer le buzz après 3s (laisse le temps à l'audio de charger)
+    setTimeout(() => {
+      const r = rooms.get(code);
+      if (!r || r.status !== 'question' || r.canBuzz) return;
+      r.canBuzz = true;
+      r.buzzedPlayerId = null;
+      r.status = 'playing';
+      io.to(code).emit('buzz-enabled');
+    }, 3000);
   }
 
   function revealAndNext(code) {

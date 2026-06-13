@@ -247,15 +247,7 @@ export default function Buzzer() {
       <div className="vinyl vinyl-spin mb-5" style={{ width: 100, height: 100 }}>
         <div className="vinyl-center" />
       </div>
-      <p className="text-white/30 animate-pulse text-lg">🎵 En attente…</p>
-      {isHost && (
-        <button
-          onClick={() => socket.emit('enable-buzz', { code })}
-          className="mt-6 px-8 py-4 rounded-2xl font-display text-xl tracking-widest text-white active:scale-95 transition-all"
-          style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)', boxShadow: '0 0 25px rgba(220,38,38,0.4)' }}>
-          🔔 ACTIVER LE BUZZ
-        </button>
-      )}
+      <p className="text-white/30 animate-pulse text-lg">🎵 La musique arrive…</p>
       <ScoreBadge score={myScore} delta={delta} />
     </FullScreen>
   );
