@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { socket } from '../socket';
 import type { Player, Song } from '../types';
 import { genreLabels, genreColors, decadeLabels, songs as allSongs, generateOptions } from '../data/songs';
@@ -167,10 +168,15 @@ export default function Buzzer() {
     return (
       <FullScreen bg="radial-gradient(ellipse at 50% 20%, rgba(124,58,237,0.2), #08090f 60%)">
         {/* Code */}
-        <div className="px-6 py-2.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-mono font-bold tracking-widest text-2xl mb-2">
+        <div className="px-6 py-2.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-mono font-bold tracking-widest text-2xl mb-4">
           {code}
         </div>
-        <p className="text-white/25 text-xs mb-5 font-mono">{joinUrl}</p>
+
+        {/* QR Code */}
+        <div className="bg-white rounded-2xl p-4 mb-4">
+          <QRCodeSVG value={joinUrl} size={180} />
+        </div>
+        <p className="text-white/20 text-xs mb-4 font-mono text-center px-4">{joinUrl}</p>
 
         {/* Players */}
         <div className="w-full max-w-xs rounded-2xl bg-white/5 border border-white/8 p-4 mb-5 space-y-1">
