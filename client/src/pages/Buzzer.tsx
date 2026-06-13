@@ -1,18 +1,21 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { socket } from '../socket';
 import type { Player, Song } from '../types';
 import { genreLabels, genreColors, decadeLabels, songs as allSongs, generateOptions } from '../data/songs';
 import QCMOptions from '../components/QCMOptions';
 
-type BuzzerState = 'lobby' | 'waiting' | 'ready' | 'buzzed-me' | 'buzzed-other' | 'revealed' | 'finished' | 'wrong';
+type BuzzerState = 'host-lobby' | 'lobby' | 'waiting' | 'ready' | 'buzzed-me' | 'buzzed-other' | 'revealed' | 'finished' | 'wrong';
 
 const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 10 };
 
 export default function Buzzer() {
   const { code }   = useParams<{ code: string }>();
   const nav        = useNavigate();
-  const [bstate, setBstate] = useState<BuzzerState>('lobby');
+  const location   = useLocation();
+  const isHost     = !!(location.state as any)?.isHost;
+  const [bstate, setBstate] = useState<BuzzerState>(isHost ? 'host-lobby' : 'lobby');
+  const [hostName, setHostName] = useState('');
   const [players, setPlayers]   = useState<Player[]>([]);
   const [question, setQuestion] = useState<{ index: number; total: number; genre?: string; decade?: string } | null>(null);
   const [revealed, setRevealed] = useState<{ title: string; artist: string; year: number } | null>(null);
@@ -152,6 +155,61 @@ export default function Buzzer() {
 
   const gc = question?.genre ? (genreColors[question.genre] || '#a855f7') : '#a855f7';
 
+  // ── HOST LOBBY ─────────────────────────────────────────────────────────
+  if (bstate === 'host-lobby') {
+    const startGame = () => {
+      if (hostName.trim()) {
+        socket.emit('host-join-as-player', { code, name: hostName.trim() }, () => {});
+      }
+      socket.emit('start-game', { code });
+    };
+    const joinUrl = `${window.location.origin}/join/${code}`;
+    return (
+      <FullScreen bg="radial-gradient(ellipse at 50% 20%, rgba(124,58,237,0.2), #08090f 60%)">
+        {/* Code */}
+        <div className="px-6 py-2.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-mono font-bold tracking-widest text-2xl mb-2">
+          {code}
+        </div>
+        <p className="text-white/25 text-xs mb-5 font-mono">{joinUrl}</p>
+
+        {/* Players */}
+        <div className="w-full max-w-xs rounded-2xl bg-white/5 border border-white/8 p-4 mb-5 space-y-1">
+          <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-3">
+            Joueurs ({players.length}/8)
+          </p>
+          {players.length === 0
+            ? <p className="text-white/20 text-sm text-center py-2">En attente de joueurs…</p>
+            : players.map(p => (
+              <div key={p.id} className="py-2 px-3 rounded-xl text-sm font-semibold text-center text-white/60">
+                {p.name}
+              </div>
+            ))
+          }
+        </div>
+
+        {/* Host name (optional — to also play) */}
+        <div className="w-full max-w-xs mb-4">
+          <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-2">Tu joues aussi ? (optionnel)</p>
+          <input
+            value={hostName}
+            onChange={e => setHostName(e.target.value.slice(0, 20))}
+            placeholder="Ton prénom…"
+            className="w-full bg-white/8 border border-white/12 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-purple-400/50 text-center"
+          />
+        </div>
+
+        <button
+          onClick={startGame}
+          disabled={players.length === 0}
+          className="w-full max-w-xs py-5 rounded-2xl font-display text-2xl tracking-widest text-white transition-all active:scale-95 disabled:opacity-30"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 0 30px rgba(139,92,246,0.4)' }}>
+          ▶ DÉMARRER
+        </button>
+        <p className="text-white/15 text-xs mt-4">Les joueurs rejoignent via le code ou le lien</p>
+      </FullScreen>
+    );
+  }
+
   // ── LOBBY ──────────────────────────────────────────────────────────────
   if (bstate === 'lobby') return (
     <FullScreen bg="#08090f">
@@ -190,6 +248,14 @@ export default function Buzzer() {
         <div className="vinyl-center" />
       </div>
       <p className="text-white/30 animate-pulse text-lg">🎵 En attente…</p>
+      {isHost && (
+        <button
+          onClick={() => socket.emit('enable-buzz', { code })}
+          className="mt-6 px-8 py-4 rounded-2xl font-display text-xl tracking-widest text-white active:scale-95 transition-all"
+          style={{ background: 'linear-gradient(135deg, #dc2626, #ef4444)', boxShadow: '0 0 25px rgba(220,38,38,0.4)' }}>
+          🔔 ACTIVER LE BUZZ
+        </button>
+      )}
       <ScoreBadge score={myScore} delta={delta} />
     </FullScreen>
   );
@@ -243,6 +309,13 @@ export default function Buzzer() {
           <span style={{ fontSize: '4rem' }}>🔔</span>
           <span className="font-display text-white tracking-widest" style={{ fontSize: '2.5rem' }}>BUZZ</span>
         </button>
+        {isHost && (
+          <button
+            onClick={() => socket.emit('skip-question', { code })}
+            className="mt-3 text-white/20 hover:text-white/50 text-sm transition-colors">
+            ⏭ Passer la question
+          </button>
+        )}
         <ScoreBadge score={myScore} delta={delta} />
       </div>
     </div>
