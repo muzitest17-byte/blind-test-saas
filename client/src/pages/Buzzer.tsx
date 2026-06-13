@@ -127,17 +127,9 @@ export default function Buzzer() {
       if (playerId === socket.id) {
         vibrate([80, 60, 80]);
         setBstate('wrong');
-        setTimeout(() => {
-          setBstate('ready');
-          shouldPlayRef.current = true;
-          const audio = audioRef.current;
-          if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
-        }, 2000);
-      } else {
-        shouldPlayRef.current = true;
-        const audio = audioRef.current;
-        if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
+        // Pas de 2e chance — reveal-answer arrive juste après depuis le serveur
       }
+      // Pas de re-enable buzz pour les autres non plus
     });
     socket.on('reveal-answer', ({ song, players: p }) => {
       setRevealed(song); setBstate('revealed');
@@ -426,7 +418,16 @@ export default function Buzzer() {
           />
         </div>
       )}
-      <p className="text-white/10 text-xs mt-5 animate-pulse">Prochaine question…</p>
+      {isHost ? (
+        <button
+          onClick={() => socket.emit('skip-question', { code })}
+          className="mt-5 px-10 py-4 rounded-2xl font-display text-xl tracking-widest text-white active:scale-95 transition-all"
+          style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 0 25px rgba(139,92,246,0.4)' }}>
+          SUIVANT →
+        </button>
+      ) : (
+        <p className="text-white/15 text-xs mt-5 animate-pulse">Prochaine question…</p>
+      )}
       <ScoreBadge score={myScore} delta={delta} />
     </FullScreen>
   );

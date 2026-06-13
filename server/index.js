@@ -177,9 +177,10 @@ io.on('connection', (socket) => {
       io.to(code).emit('answer-correct', { playerId: player.id, playerName: player.name, players: room.players });
       revealAndNext(code);
     } else {
+      // Pas de 2e chance — mauvaise réponse → révéler immédiatement
       player.score = Math.max(0, player.score - 25); player.wrong++;
-      room.buzzedPlayerId = null; room.canBuzz = true; room.status = 'playing';
       io.to(code).emit('answer-wrong', { playerId: player.id, playerName: player.name, players: room.players });
+      revealAndNext(code);
     }
   });
 
@@ -205,11 +206,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ─── Passer la question ───
+  // ─── Passer / Suivant ───
   socket.on('skip-question', ({ code }) => {
     const room = rooms.get(code);
     if (!room || room.hostId !== socket.id) return;
-    revealAndNext(code);
+    if (room.status === 'revealed') {
+      // Déjà révélé → question suivante immédiatement
+      sendNextQuestion(code);
+    } else {
+      revealAndNext(code);
+    }
   });
 
   // ─── Déconnexion ───
