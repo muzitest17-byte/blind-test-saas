@@ -164,6 +164,25 @@ io.on('connection', (socket) => {
     io.to(code).emit('player-buzzed', { playerId: socket.id, playerName: player.name });
   });
 
+  // ─── Réponse joueur via QCM ───
+  socket.on('player-answer', ({ code, selectedOption }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || room.buzzedPlayerId !== socket.id) return;
+    const song = room.currentSong;
+    const correct = selectedOption === `${song.title} — ${song.artist}`;
+    if (correct) {
+      player.score += 100; player.correct++;
+      io.to(code).emit('answer-correct', { playerId: player.id, playerName: player.name, players: room.players });
+      revealAndNext(code);
+    } else {
+      player.score = Math.max(0, player.score - 25); player.wrong++;
+      room.buzzedPlayerId = null; room.canBuzz = true; room.status = 'playing';
+      io.to(code).emit('answer-wrong', { playerId: player.id, playerName: player.name, players: room.players });
+    }
+  });
+
   // ─── Résultat réponse ───
   socket.on('answer-result', ({ code, correct }) => {
     const room = rooms.get(code);

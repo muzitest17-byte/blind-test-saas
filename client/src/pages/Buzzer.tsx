@@ -194,95 +194,107 @@ export default function Buzzer() {
     </FullScreen>
   );
 
-  // ── READY — audio + QCM + buzz ────────────────────────────────────────
+  // ── READY — gros buzzer plein écran ──────────────────────────────────
   if (bstate === 'ready') return (
     <div className="min-h-screen flex flex-col select-none"
-         style={{ background: 'radial-gradient(ellipse at 50% 70%, rgba(220,38,38,0.12), #08090f 65%)' }}>
+         style={{ background: 'radial-gradient(ellipse at 50% 60%, rgba(220,38,38,0.18), #08090f 70%)' }}>
       <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
 
-      {/* Header */}
-      <div className="p-4 pt-6">
-        {question && (
-          <div className="px-4 py-2.5 rounded-2xl text-center"
-               style={{ background: `${gc}15`, border: `1px solid ${gc}30` }}>
-            <p className="text-xs text-white/25">Question {question.index}/{question.total}</p>
-            {question.genre && <p className="font-bold text-sm" style={{ color: gc }}>{genreLabels[question.genre]}</p>}
-          </div>
-        )}
-
-        {/* EQ + timer */}
-        <div className="flex items-center justify-between mt-3">
-          {isPlaying ? (
-            <div className="flex items-end gap-1" style={{ height: 20 }}>
-              {[10,16,22,14,20,12,18].map((h, i) => (
+      {/* Header compact */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-2">
+        <div className="flex items-center gap-2">
+          {isPlaying && (
+            <div className="flex items-end gap-0.5" style={{ height: 16 }}>
+              {[8,14,10,16,9].map((h, i) => (
                 <div key={i} className="eq-bar rounded-sm"
                      style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
                               background: `linear-gradient(to top, ${gc}99, ${gc})` }} />
               ))}
             </div>
-          ) : <div />}
-          {timeLeft > 0 && (
-            <span className="font-display text-2xl tabular-nums"
-                  style={{ color: timeLeft <= 5 ? '#f87171' : timeLeft <= 10 ? '#fb923c' : '#6ee7b7',
-                           textShadow: timeLeft <= 5 ? '0 0 12px rgba(248,113,113,0.7)' : 'none' }}>
-              {timeLeft}s
-            </span>
+          )}
+          {question && (
+            <span className="text-xs text-white/30">Q{question.index}/{question.total}</span>
           )}
         </div>
+        {timeLeft > 0 && (
+          <span className="font-display text-3xl tabular-nums"
+                style={{ color: timeLeft <= 5 ? '#f87171' : timeLeft <= 10 ? '#fb923c' : '#6ee7b7',
+                         textShadow: timeLeft <= 5 ? '0 0 16px rgba(248,113,113,0.8)' : 'none' }}>
+            {timeLeft}s
+          </span>
+        )}
       </div>
 
-      {/* QCM */}
-      {qcmOptions.length > 0 && (
-        <div className="flex-1 px-4 pb-2">
-          <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-2">Tes choix</p>
-          <QCMOptions
-            options={qcmOptions}
-            correctOption={qcmCorrectSong ? `${qcmCorrectSong.title} — ${qcmCorrectSong.artist}` : ''}
-            selected={qcmSelected}
-            onSelect={setQcmSelected}
-          />
-        </div>
-      )}
-
-      {/* Buzz button */}
-      <div className="px-4 pb-6 pt-2">
+      {/* Gros bouton BUZZ — occupe tout l'espace restant */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8">
         <button
           onPointerDown={doBuzz}
-          className="w-full py-7 rounded-3xl flex flex-col items-center justify-center gap-2 active:scale-95 transition-transform duration-100"
+          className="w-full active:scale-95 transition-transform duration-75 flex flex-col items-center justify-center gap-4"
           style={{
             touchAction: 'none',
             WebkitTapHighlightColor: 'transparent',
-            background: 'radial-gradient(ellipse at 50% 60%, rgba(220,38,38,0.25), rgba(220,38,38,0.06))',
-            border: '2px solid rgba(220,38,38,0.5)',
-            boxShadow: '0 0 30px rgba(220,38,38,0.25)',
+            height: '60vmax',
+            maxHeight: 420,
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at 50% 45%, rgba(220,38,38,0.45), rgba(185,28,28,0.15))',
+            border: '3px solid rgba(239,68,68,0.6)',
+            boxShadow: '0 0 60px rgba(220,38,38,0.4), 0 0 120px rgba(220,38,38,0.15), inset 0 0 40px rgba(220,38,38,0.1)',
           }}>
-          <span className="text-5xl">🔔</span>
-          <span className="font-display text-white text-2xl tracking-widest">BUZZ</span>
+          <span style={{ fontSize: '4rem' }}>🔔</span>
+          <span className="font-display text-white tracking-widest" style={{ fontSize: '2.5rem' }}>BUZZ</span>
         </button>
         <ScoreBadge score={myScore} delta={delta} />
       </div>
     </div>
   );
 
-  // ── BUZZÉ MOI ──────────────────────────────────────────────────────────
-  if (bstate === 'buzzed-me') return (
-    <FullScreen bg="radial-gradient(ellipse at 50% 40%, #2d0f00, #08090f 70%)">
-      <audio ref={audioRef} />
-      <div className="relative mb-6">
-        <div className="w-44 h-44 rounded-full border-2 border-orange-400/60 flex items-center justify-center"
-             style={{ background: 'rgba(251,146,60,0.12)', boxShadow: '0 0 60px rgba(251,146,60,0.4), 0 0 120px rgba(251,146,60,0.15)' }}>
-          <span className="text-7xl">🔔</span>
+  // ── BUZZÉ MOI — QCM pour répondre ────────────────────────────────────
+  if (bstate === 'buzzed-me') {
+    const submitQCM = (opt: string) => {
+      setQcmSelected(opt);
+      socket.emit('player-answer', { code, selectedOption: opt });
+    };
+    return (
+      <div className="min-h-screen flex flex-col p-5"
+           style={{ background: 'radial-gradient(ellipse at 50% 30%, #2d0f00, #08090f 65%)' }}>
+        <audio ref={audioRef} />
+
+        {/* Badge buzzé */}
+        <div className="flex flex-col items-center pt-6 pb-4">
+          <div className="relative mb-3">
+            <div className="w-20 h-20 rounded-full border-2 border-orange-400/60 flex items-center justify-center"
+                 style={{ background: 'rgba(251,146,60,0.15)', boxShadow: '0 0 40px rgba(251,146,60,0.4)' }}>
+              <span className="text-4xl">🔔</span>
+            </div>
+            <div className="absolute inset-0 rounded-full border border-orange-400/40 animate-ping" />
+          </div>
+          <h2 className="font-display text-4xl mb-1"
+              style={{ color: '#fb923c', textShadow: '0 0 30px rgba(251,146,60,0.7)' }}>
+            TU AS BUZZÉ !
+          </h2>
+          <p className="text-white/35 text-sm">Choisis ta réponse :</p>
         </div>
-        <div className="absolute inset-0 rounded-full border border-orange-400/40 animate-ping" />
+
+        {/* QCM */}
+        {qcmOptions.length > 0 ? (
+          <div className="flex-1">
+            <QCMOptions
+              options={qcmOptions}
+              correctOption={qcmCorrectSong ? `${qcmCorrectSong.title} — ${qcmCorrectSong.artist}` : ''}
+              selected={qcmSelected}
+              onSelect={submitQCM}
+            />
+          </div>
+        ) : (
+          <p className="text-white/30 text-center flex-1 flex items-center justify-center">
+            Donne ta réponse à l'hôte
+          </p>
+        )}
+
+        <ScoreBadge score={myScore} delta={delta} />
       </div>
-      <h2 className="font-display text-6xl mb-3"
-          style={{ color: '#fb923c', textShadow: '0 0 40px rgba(251,146,60,0.7)' }}>
-        TU AS BUZZÉ !
-      </h2>
-      <p className="text-white/40 text-lg">Donne ta réponse à l'hôte</p>
-      <ScoreBadge score={myScore} delta={delta} />
-    </FullScreen>
-  );
+    );
+  }
 
   // ── BUZZÉ AUTRE ────────────────────────────────────────────────────────
   if (bstate === 'buzzed-other') return (
