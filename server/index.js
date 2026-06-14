@@ -7,12 +7,26 @@ import os from 'os';
 
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-});
 
-app.use(cors());
-app.use(express.json());
+const ALLOWED_ORIGINS = [
+  'https://blind-test-musique-c.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+
+const corsOptions = {
+  origin: (origin, cb) => {
+    // Autoriser les requêtes sans origin (ex: Postman, mobile)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    cb(new Error('CORS non autorisé'));
+  },
+  methods: ['GET', 'POST'],
+};
+
+const io = new Server(httpServer, { cors: corsOptions });
+
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '50kb' }));
 
 function getLocalIP() {
   const nets = os.networkInterfaces();
@@ -24,11 +38,30 @@ function getLocalIP() {
   return 'localhost';
 }
 
+// ─── Rate limiting simple pour /api/preview ───
+const previewRequests = new Map();
+function isRateLimited(ip, maxPerMinute = 30) {
+  const now = Date.now();
+  const windowStart = now - 60_000;
+  const timestamps = (previewRequests.get(ip) || []).filter(t => t > windowStart);
+  if (timestamps.length >= maxPerMinute) return true;
+  timestamps.push(now);
+  previewRequests.set(ip, timestamps);
+  return false;
+}
+
 // Proxy Deezer pour éviter les problèmes CORS
 app.get('/api/preview', async (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+  if (isRateLimited(ip)) return res.status(429).json({ error: 'Trop de requêtes' });
+
+  const { q } = req.query;
+  if (!q || typeof q !== 'string' || q.trim().length === 0 || q.length > 200) {
+    return res.status(400).json({ preview: null, found: false });
+  }
+
   try {
-    const { q } = req.query;
-    const url = `https://api.deezer.com/search?q=${encodeURIComponent(q)}&limit=5&output=json`;
+    const url = `https://api.deezer.com/search?q=${encodeURIComponent(q.trim())}&limit=5&output=json`;
     const response = await fetch(url);
     const data = await response.json();
     if (data.data && data.data.length > 0) {
@@ -47,15 +80,40 @@ app.get('/api/preview', async (req, res) => {
   }
 });
 
-app.get('/api/local-ip', (_req, res) => {
-  res.json({ ip: getLocalIP() });
-});
-
 // Stockage des salles
 const rooms = new Map();
 
+// Rate limiting pour la création de salles (par socket)
+const roomCreationTracker = new Map();
+function canCreateRoom(socketId) {
+  const now = Date.now();
+  const last = roomCreationTracker.get(socketId) || 0;
+  if (now - last < 5_000) return false; // max 1 salle toutes les 5s
+  roomCreationTracker.set(socketId, now);
+  return true;
+}
+
 function generateCode() {
-  return Math.random().toString(36).substring(2, 7).toUpperCase();
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sans O/0/I/1 pour éviter la confusion
+  let code = '';
+  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function sanitizeName(name) {
+  if (typeof name !== 'string') return null;
+  const trimmed = name.trim();
+  if (trimmed.length === 0 || trimmed.length > 30) return null;
+  return trimmed;
+}
+
+function validateSongs(songs) {
+  if (!Array.isArray(songs) || songs.length === 0 || songs.length > 100) return false;
+  return songs.every(s =>
+    s && typeof s.id === 'string' &&
+    typeof s.title === 'string' && s.title.length <= 200 &&
+    typeof s.artist === 'string' && s.artist.length <= 200
+  );
 }
 
 function shuffle(arr) {
@@ -66,11 +124,23 @@ function shuffle(arr) {
   return arr;
 }
 
+// Nettoyage des salles terminées après 5 minutes
+function scheduleRoomCleanup(code) {
+  setTimeout(() => {
+    rooms.delete(code);
+    console.log(`Salle nettoyée: ${code}`);
+  }, 5 * 60_000);
+}
+
 io.on('connection', (socket) => {
   console.log('+ Connexion:', socket.id);
 
   // ─── Création salle ───
   socket.on('create-room', ({ difficulty, genres, questionCount, songs }, cb) => {
+    if (!canCreateRoom(socket.id)) return cb?.({ error: 'Trop de salles créées, attendez un moment' });
+    if (!validateSongs(songs)) return cb?.({ error: 'Liste de chansons invalide' });
+
+    const count = typeof questionCount === 'number' ? Math.min(Math.max(1, questionCount), 50) : 10;
     const code = generateCode();
     const room = {
       code,
@@ -79,7 +149,7 @@ io.on('connection', (socket) => {
       status: 'lobby',
       difficulty,
       genres,
-      questionCount,
+      questionCount: count,
       songs: shuffle([...songs]),
       currentQuestion: 0,
       currentSong: null,
@@ -96,27 +166,34 @@ io.on('connection', (socket) => {
 
   // ─── Rejoindre salle ───
   socket.on('join-room', ({ code, name }, cb) => {
-    const room = rooms.get(code);
+    const safeName = sanitizeName(name);
+    if (!safeName) return cb({ error: 'Nom invalide (1-30 caractères)' });
+
+    const room = rooms.get(typeof code === 'string' ? code.toUpperCase() : '');
     if (!room) return cb({ error: 'Salle introuvable' });
     if (room.status !== 'lobby') return cb({ error: 'Partie déjà commencée' });
     if (room.players.length >= 8) return cb({ error: 'Salle pleine (max 8)' });
 
-    const player = { id: socket.id, name, score: 0, buzzes: 0, correct: 0, wrong: 0 };
+    const player = { id: socket.id, name: safeName, score: 0, buzzes: 0, correct: 0, wrong: 0 };
     room.players.push(player);
-    socket.join(code);
-    socket.data.roomCode = code;
+    socket.join(room.code);
+    socket.data.roomCode = room.code;
     socket.data.isHost = false;
 
-    io.to(code).emit('room-update', { players: room.players, status: room.status });
-    cb({ ok: true, code });
+    io.to(room.code).emit('room-update', { players: room.players, status: room.status });
+    cb({ ok: true, code: room.code });
   });
 
   // ─── Host rejoint en tant que joueur ───
   socket.on('host-join-as-player', ({ code, name }, cb) => {
+    const safeName = sanitizeName(name);
+    if (!safeName) return cb?.({ error: 'Nom invalide (1-30 caractères)' });
+
     const room = rooms.get(code);
     if (!room || room.hostId !== socket.id) return cb?.({ error: 'Non autorisé' });
-    if (room.players.find(p => p.id === socket.id)) return cb?.({ ok: true }); // déjà inscrit
-    const player = { id: socket.id, name, score: 0, buzzes: 0, correct: 0, wrong: 0 };
+    if (room.players.find(p => p.id === socket.id)) return cb?.({ ok: true });
+
+    const player = { id: socket.id, name: safeName, score: 0, buzzes: 0, correct: 0, wrong: 0 };
     room.players.push(player);
     room.hostIsPlayer = true;
     io.to(code).emit('room-update', { players: room.players, status: room.status });
@@ -166,6 +243,7 @@ io.on('connection', (socket) => {
 
   // ─── Réponse joueur via QCM ───
   socket.on('player-answer', ({ code, selectedOption }) => {
+    if (typeof selectedOption !== 'string' || selectedOption.length > 400) return;
     const room = rooms.get(code);
     if (!room) return;
     const player = room.players.find(p => p.id === socket.id);
@@ -177,7 +255,6 @@ io.on('connection', (socket) => {
       io.to(code).emit('answer-correct', { playerId: player.id, playerName: player.name, players: room.players });
       revealAndNext(code);
     } else {
-      // Pas de 2e chance — mauvaise réponse → révéler immédiatement
       player.score = Math.max(0, player.score - 25); player.wrong++;
       io.to(code).emit('answer-wrong', { playerId: player.id, playerName: player.name, players: room.players });
       revealAndNext(code);
@@ -211,7 +288,6 @@ io.on('connection', (socket) => {
     const room = rooms.get(code);
     if (!room || room.hostId !== socket.id) return;
     if (room.status === 'revealed') {
-      // Déjà révélé → question suivante immédiatement
       sendNextQuestion(code);
     } else {
       revealAndNext(code);
@@ -243,6 +319,7 @@ io.on('connection', (socket) => {
       room.status = 'finished';
       const sorted = [...room.players].sort((a, b) => b.score - a.score);
       io.to(code).emit('game-finished', { players: sorted });
+      scheduleRoomCleanup(code);
       return;
     }
 
@@ -252,14 +329,13 @@ io.on('connection', (socket) => {
     room.canBuzz = false;
     room.status = 'question';
 
-    // Tous les joueurs (y compris l'hôte s'il joue) reçoivent la version joueur
     io.to(code).emit('new-question', {
       song: { id: song.id, genre: song.genre, decade: song.decade, difficulty: song.difficulty },
       index: room.currentQuestion + 1,
       total: room.songs.length,
     });
 
-    // Auto-activer le buzz après 3s (laisse le temps à l'audio de charger)
+    // Auto-activer le buzz après 10s
     setTimeout(() => {
       const r = rooms.get(code);
       if (!r || r.status !== 'question' || r.canBuzz) return;
@@ -267,7 +343,7 @@ io.on('connection', (socket) => {
       r.buzzedPlayerId = null;
       r.status = 'playing';
       io.to(code).emit('buzz-enabled');
-    }, 3000);
+    }, 10000);
   }
 
   function revealAndNext(code) {
