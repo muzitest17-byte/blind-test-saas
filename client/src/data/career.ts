@@ -253,6 +253,22 @@ export const campaigns: Campaign[] = [
     ],
   },
   {
+    id: 'cartoonFR',
+    name: 'Dessins Animés FR',
+    subtitle: 'Génériques cultes de la TV française',
+    emoji: '📺',
+    decade: '1980s',
+    color: 'from-orange-500 to-yellow-400',
+    unlocked: true,
+    levels: [
+      { id: 'cartoonFR-1', name: 'Club Dorothée', description: 'Goldorak, Candy, Albator, Ulysse 31…', songCount: 8, genreFilter: ['cartoon'], decadeFilter: ['1970s', '1980s'], difficultyMax: 2, stars: 0, unlocked: true },
+      { id: 'cartoonFR-2', name: 'Anime VF', description: 'DBZ, Sailor Moon, Chevaliers du Zodiaque…', songCount: 10, genreFilter: ['cartoon'], decadeFilter: ['1980s', '1990s'], difficultyMax: 3, stars: 0, unlocked: false },
+      { id: 'cartoonFR-3', name: 'Disney VF', description: 'Roi Lion, Aladdin, Belle et la Bête…', songCount: 8, genreFilter: ['cartoon'], decadeFilter: ['1990s'], difficultyMax: 2, stars: 0, unlocked: false },
+      { id: 'cartoonFR-4', name: 'Années 2000+', description: 'Totally Spies, Code Lyoko, Miraculous…', songCount: 8, genreFilter: ['cartoon'], decadeFilter: ['2000s', '2010s'], difficultyMax: 3, stars: 0, unlocked: false },
+      { id: 'cartoonFR-5', name: 'Maître des Génériques', description: 'Tous les dessins animés — niveau expert', songCount: 15, genreFilter: ['cartoon'], difficultyMax: 5, stars: 0, unlocked: false },
+    ],
+  },
+  {
     id: 'mix',
     name: 'All Decades',
     subtitle: 'Le grand mix toutes époques',

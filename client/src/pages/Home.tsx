@@ -34,7 +34,7 @@ const MODES = [
 ];
 
 const STATS = [
-  { n: '2618', label: 'chansons' },
+  { n: '2658', label: 'chansons' },
   { n: '19', label: 'genres' },
   { n: '9', label: 'décennies' },
   { n: '11', label: 'campagnes' },
@@ -105,7 +105,7 @@ export default function Home() {
         </h1>
         <p className="text-sm tracking-[0.35em] uppercase font-medium"
            style={{ background: 'linear-gradient(90deg, #f472b6, #c084fc, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          🎵 Musical · 2618 chansons · 9 décennies
+          🎵 Musical · 2658 chansons · 9 décennies
         </p>
       </div>
 
