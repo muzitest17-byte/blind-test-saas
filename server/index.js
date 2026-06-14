@@ -50,6 +50,11 @@ function isRateLimited(ip, maxPerMinute = 30) {
   return false;
 }
 
+// IP locale pour le QR code (usage réseau local uniquement)
+app.get('/api/local-ip', (_req, res) => {
+  res.json({ ip: getLocalIP() });
+});
+
 // Proxy Deezer pour éviter les problèmes CORS
 app.get('/api/preview', async (req, res) => {
   const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
@@ -110,7 +115,7 @@ function sanitizeName(name) {
 function validateSongs(songs) {
   if (!Array.isArray(songs) || songs.length === 0 || songs.length > 100) return false;
   return songs.every(s =>
-    s && typeof s.id === 'string' &&
+    s && (typeof s.id === 'string' || typeof s.id === 'number') &&
     typeof s.title === 'string' && s.title.length <= 200 &&
     typeof s.artist === 'string' && s.artist.length <= 200
   );
