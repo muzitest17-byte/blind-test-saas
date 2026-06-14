@@ -7,6 +7,8 @@ import type { Song } from '../types';
 
 type Phase = 'loading' | 'ready' | 'listening' | 'answered' | 'revealed';
 
+const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 10 };
+
 export default function CareerGame() {
   const { campaignId, levelId } = useParams<{ campaignId: string; levelId: string }>();
   const nav = useNavigate();
@@ -25,7 +27,6 @@ export default function CareerGame() {
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [finished, setFinished] = useState(false);
   const [finalStars, setFinalStars] = useState<0|1|2|3>(0);
@@ -75,11 +76,11 @@ export default function CareerGame() {
   function play() {
     const a = audioRef.current;
     if (!a || !previewUrl) return;
-    a.play(); setIsPlaying(true); setPhase('listening'); setBuzzTime(Date.now());
+    a.play(); setPhase('listening'); setBuzzTime(Date.now());
   }
 
   function resolveAnswer(ok: boolean) {
-    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
+    if (audioRef.current) { audioRef.current.pause(); }
     const secs = (Date.now() - buzzTime) / 1000;
     if (ok) {
       const bonus = secs < 5 ? 50 : secs < 10 ? 25 : 0;
@@ -108,7 +109,7 @@ export default function CareerGame() {
   }
 
   function revealSkip() {
-    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
+    if (audioRef.current) { audioRef.current.pause(); }
     setPhase('revealed');
   }
 
@@ -128,9 +129,10 @@ export default function CareerGame() {
         ...c,
         levels: c.levels.map((lv, i) => {
           if (lv.id === levelId) {
-            const next = c.levels[i + 1];
-            if (next && s >= 1) c.levels[i + 1] = { ...next, unlocked: true };
             return { ...lv, stars: Math.max(lv.stars, s) as 0|1|2|3 };
+          }
+          if (i > 0 && c.levels[i - 1].id === levelId && s >= 1) {
+            return { ...lv, unlocked: true };
           }
           return lv;
         }),
@@ -189,7 +191,7 @@ export default function CareerGame() {
 
   return (
     <div className="min-h-screen bg-[#06060e] flex flex-col p-4">
-      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
+      <audio ref={audioRef} />
 
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4 max-w-lg mx-auto w-full">
@@ -291,8 +293,8 @@ export default function CareerGame() {
                   {/* Barre de progression */}
                   <div className="flex items-center gap-3 w-full mb-3">
                     <span className="text-xs text-white/50 w-7 text-right tabular-nums">{Math.floor(currentTime)}s</span>
-                    <div className="flex-1 pbar"><div className="pbar-fill" style={{ width: `${(currentTime/30)*100}%` }} /></div>
-                    <span className="text-xs text-white/50 w-7 tabular-nums">30s</span>
+                    <div className="flex-1 pbar"><div className="pbar-fill" style={{ width: `${(currentTime / (DIFFICULTY_TIME[song?.difficulty ?? 2] ?? 20)) * 100}%` }} /></div>
+                    <span className="text-xs text-white/50 w-7 tabular-nums">{DIFFICULTY_TIME[song?.difficulty ?? 2] ?? 20}s</span>
                   </div>
                   <p className="text-purple-300 text-xs tracking-[0.35em] uppercase font-bold animate-pulse">🎵 Musique en cours…</p>
                 </div>

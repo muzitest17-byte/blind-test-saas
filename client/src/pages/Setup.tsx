@@ -35,8 +35,13 @@ export default function Setup() {
     setLoading(true); setError('');
     const picked = shuffle(available).slice(0, qCount);
     socket.connect();
-    socket.emit('create-room', { difficulty, genres, questionCount: qCount, songs: picked }, (res: { code: string; ip: string }) => {
+    socket.emit('create-room', { difficulty, genres, questionCount: qCount, songs: picked }, (res: { code?: string; ip?: string; error?: string }) => {
       setLoading(false);
+      if (res.error || !res.code) {
+        setError(res.error ?? 'Impossible de créer la salle. Réessayez.');
+        socket.disconnect();
+        return;
+      }
       nav(`/buzzer/${res.code}`, { state: { isHost: true, difficulty } });
     });
   }
