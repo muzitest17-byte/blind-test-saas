@@ -2,7 +2,8 @@ export type Genre =
   | 'jazz' | 'classique' | 'rock' | 'pop' | 'reggae'
   | 'electronic' | 'hiphop' | 'soul' | 'disco' | 'metal'
   | 'french' | 'funk' | 'rnb' | 'variete'
-  | 'blues' | 'folk' | 'gospel' | 'operette' | 'trad';
+  | 'blues' | 'folk' | 'gospel' | 'operette' | 'trad'
+  | 'cartoonVO' | 'cartoonVF' | 'serietv';
 
 export type Decade =
   | '1940s' | '1950s' | '1960s' | '1970s' | '1980s'
