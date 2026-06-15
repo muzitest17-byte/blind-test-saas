@@ -3136,25 +3136,31 @@ export function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/** Génère 4 options QCM : 1 correcte + 3 leurres de la même période */
+/** Génère 4 options QCM : 1 correcte + 3 leurres du même style musical */
 export function generateOptions(correct: Song, pool: Song[]): string[] {
   const correctLabel = `${correct.title} — ${correct.artist}`;
   const ALL_DECADES = ['1940s','1950s','1960s','1970s','1980s','1990s','2000s','2010s','2020s'];
   const di = ALL_DECADES.indexOf(correct.decade);
   const adjDecades = [ALL_DECADES[di - 1], ALL_DECADES[di + 1]].filter(Boolean);
 
-  // Priorité 1 : même décennie + même genre (meilleur leurre)
-  const tier1 = pool.filter(s => s.id !== correct.id && s.decade === correct.decade && s.genre === correct.genre);
-  // Priorité 2 : même décennie, genre différent
-  const tier2 = pool.filter(s => s.id !== correct.id && s.decade === correct.decade && s.genre !== correct.genre);
-  // Priorité 3 : décennies adjacentes (±10 ans)
-  const used2 = new Set(tier1.map(s => s.id));
-  const tier3 = pool.filter(s => s.id !== correct.id && adjDecades.includes(s.decade) && !used2.has(s.id));
-  // Priorité 4 : reste
-  const usedAll = new Set([...tier1, ...tier2, ...tier3].map(s => s.id));
-  const tier4 = pool.filter(s => s.id !== correct.id && !usedAll.has(s.id));
+  const others = pool.filter(s => s.id !== correct.id);
 
-  const candidates = shuffle([...tier1, ...tier2, ...tier3, ...tier4]);
+  // Tier 1 : même genre + même décennie (leurre idéal : même style, même époque)
+  const tier1 = others.filter(s => s.genre === correct.genre && s.decade === correct.decade);
+  // Tier 2 : même genre + décennie adjacente (même style, époque proche)
+  const used1 = new Set(tier1.map(s => s.id));
+  const tier2 = others.filter(s => s.genre === correct.genre && adjDecades.includes(s.decade) && !used1.has(s.id));
+  // Tier 3 : même genre, toutes décennies (même style, époque quelconque)
+  const used12 = new Set([...tier1, ...tier2].map(s => s.id));
+  const tier3 = others.filter(s => s.genre === correct.genre && !used12.has(s.id));
+  // Tier 4 : même décennie, genre différent (fallback si genre rare)
+  const used123 = new Set([...tier1, ...tier2, ...tier3].map(s => s.id));
+  const tier4 = others.filter(s => s.decade === correct.decade && !used123.has(s.id));
+  // Tier 5 : tout le reste
+  const usedAll = new Set([...tier1, ...tier2, ...tier3, ...tier4].map(s => s.id));
+  const tier5 = others.filter(s => !usedAll.has(s.id));
+
+  const candidates = shuffle([...tier1, ...tier2, ...tier3, ...tier4, ...tier5]);
   const wrongs = candidates.slice(0, 3).map(s => `${s.title} — ${s.artist}`);
   return shuffle([correctLabel, ...wrongs]);
 }
