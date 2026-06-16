@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getSongsByFilters, shuffle, genreLabels, genreColors, decadeLabels, generateOptions, songs as allSongs } from '../data/songs';
 import QCMOptions from '../components/QCMOptions';
+import MiniLogo from '../components/MiniLogo';
 import type { Song, Genre, Decade } from '../types';
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
@@ -115,7 +116,10 @@ function ConfigScreen({ config, onChange, onStart, onBack }: {
       </div>
 
       <div className="w-full max-w-2xl mx-auto z-10 relative">
-        <button onClick={onBack} className="text-white/20 hover:text-white/60 transition-colors text-sm mb-6">← Accueil</button>
+        <div className="flex items-center gap-3 mb-6">
+          <MiniLogo size={30} />
+          <button onClick={onBack} className="text-white/20 hover:text-white/60 transition-colors text-sm">← Accueil</button>
+        </div>
 
         {/* Title */}
         <div className="mb-8">
@@ -480,7 +484,10 @@ function GameScreen({ config, onRestart, onHome }: { config: Config; onRestart: 
 
       {/* Top bar */}
       <div className="flex items-center justify-between mb-3 max-w-lg mx-auto w-full">
-        <button onClick={onHome} className="text-white/20 hover:text-white/50 transition-colors text-lg w-8">✕</button>
+        <div className="flex items-center gap-2">
+          <MiniLogo size={28} />
+          <button onClick={onHome} className="text-white/20 hover:text-white/50 transition-colors text-lg">✕</button>
+        </div>
 
         <div className="flex items-center gap-2">
           {streak >= 2 && (

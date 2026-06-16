@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Logo from '../components/Logo';
 
 const CATEGORIES = [
   { id: 'geo',      icon: '🌍', label: 'Géo',        color: '#22c55e', active: false },
@@ -107,23 +108,24 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <div className="relative z-10 text-center mb-10 fade-in">
-        {/* Vinyl */}
-        <div className="relative inline-flex mb-6 mt-2">
-          <div className="vinyl vinyl-spin" style={{ width: 100, height: 100 }}>
-            <div className="vinyl-center" />
-          </div>
-          {/* Ripple */}
-          <span className="absolute inset-0 rounded-full border border-purple-500/20 animate-ping" style={{ animationDuration: '3s' }} />
-          <span className="absolute -inset-3 rounded-full border border-purple-500/10 animate-ping" style={{ animationDuration: '3s', animationDelay: '0.8s' }} />
+        {/* Logo */}
+        <div className="mb-5 mt-2">
+          <Logo />
         </div>
 
         {/* Title */}
         <h1 className="font-display leading-none mb-2" style={{ fontSize: 'clamp(4.5rem, 15vw, 10rem)' }}>
-          <span style={{ background: 'linear-gradient(135deg, #f472b6, #c084fc, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>BLIND</span>
-          <span style={{ background: 'linear-gradient(135deg, #22d3ee, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> TEST</span>
+          <span style={{
+            background: 'linear-gradient(90deg, #fde68a, #fbbf24, #fff7ed, #fbbf24, #fde68a)',
+            backgroundSize: '200% auto',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            animation: 'goldShimmer 3.5s ease-in-out infinite',
+            textShadow: '0 0 30px rgba(251,191,36,0.25)',
+          }}>BLIND</span>
+          <span style={{ background: 'linear-gradient(135deg, #f5f5f5, #d4d4d8, #fafafa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> TEST</span>
         </h1>
         <p className="text-sm tracking-[0.35em] uppercase font-medium"
-           style={{ background: 'linear-gradient(90deg, #f472b6, #c084fc, #22d3ee)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+           style={{ background: 'linear-gradient(90deg, #fbbf24, #fde68a, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
           🎵 Musical · 2658 chansons · 9 décennies
         </p>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loadCareerSave, totalStars, campaigns as base } from '../data/career';
+import MiniLogo from '../components/MiniLogo';
 import type { Campaign, CareerLevel } from '../types';
 
 // ─── Personnages musicaux ─────────────────────────────────────────────────────
@@ -287,7 +288,10 @@ export default function Career() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => nav('/')} className="btn btn-ghost btn-sm">← Accueil</button>
+          <div className="flex items-center gap-2">
+            <MiniLogo size={28} />
+            <button onClick={() => nav('/')} className="btn btn-ghost btn-sm">← Accueil</button>
+          </div>
           <div className="flex items-center gap-3">
             <div className="badge badge-amber">⭐ {stars} / {maxStars}</div>
             <button onClick={reset} className="text-white/15 hover:text-red-400 text-xs transition-colors">reset</button>

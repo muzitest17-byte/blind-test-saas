@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { socket } from '../socket';
 import { genreLabels, genreColors, decadeLabels, getSongsByFilters, shuffle } from '../data/songs';
+import MiniLogo from '../components/MiniLogo';
 import type { Genre, Decade } from '../types';
 
 const ALL_GENRES = Object.keys(genreLabels) as Genre[];
@@ -55,10 +56,13 @@ export default function Setup() {
 
       <div className="w-full max-w-xl mx-auto z-10">
         {/* Back */}
-        <button onClick={() => step > 1 ? setStep(s => (s - 1) as 1|2|3) : nav('/')}
-          className="text-white/30 hover:text-white/70 transition-colors text-sm mb-8 flex items-center gap-2">
-          ← Retour
-        </button>
+        <div className="flex items-center gap-3 mb-8">
+          <MiniLogo size={28} />
+          <button onClick={() => step > 1 ? setStep(s => (s - 1) as 1|2|3) : nav('/')}
+            className="text-white/30 hover:text-white/70 transition-colors text-sm flex items-center gap-2">
+            ← Retour
+          </button>
+        </div>
 
         {/* Step dots */}
         <div className="flex items-center gap-2 mb-10">

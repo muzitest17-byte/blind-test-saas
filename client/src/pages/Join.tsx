@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { socket } from '../socket';
+import MiniLogo from '../components/MiniLogo';
 
 export default function Join() {
   const { code: paramCode } = useParams<{ code?: string }>();
@@ -31,11 +32,9 @@ export default function Join() {
       </div>
 
       <div className="w-full max-w-sm relative z-10 scale-in">
-        {/* Vinyl */}
+        {/* Logo */}
         <div className="flex justify-center mb-6">
-          <div className="vinyl relative" style={{ width: 72, height: 72 }}>
-            <div className="vinyl-center" />
-          </div>
+          <MiniLogo size={56} />
         </div>
 
         <h1 className="font-display text-center mb-1 glow-purple" style={{ fontSize: '3.5rem' }}>

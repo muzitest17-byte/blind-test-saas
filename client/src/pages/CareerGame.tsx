@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { loadCareerSave, saveCareer } from '../data/career';
 import { getSongsByFilters, shuffle, genreLabels, genreColors, decadeLabels, generateOptions, songs as allSongs } from '../data/songs';
 import QCMOptions from '../components/QCMOptions';
+import MiniLogo from '../components/MiniLogo';
 import type { Song } from '../types';
 
 type Phase = 'loading' | 'ready' | 'listening' | 'answered' | 'revealed';
@@ -195,7 +196,10 @@ export default function CareerGame() {
 
       {/* Top bar */}
       <div className="flex items-center justify-between mb-4 max-w-lg mx-auto w-full">
-        <button onClick={() => nav('/career')} className="text-white/20 hover:text-white/50 transition-colors text-sm">← Quitter</button>
+        <div className="flex items-center gap-2">
+          <MiniLogo size={26} />
+          <button onClick={() => nav('/career')} className="text-white/20 hover:text-white/50 transition-colors text-sm">← Quitter</button>
+        </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-white/30">{qi + 1}/{queue.length}</span>
           <span className="font-black text-purple-300">{score}pts</span>

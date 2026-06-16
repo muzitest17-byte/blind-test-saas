@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import MiniLogo from '../components/MiniLogo';
 
 export default function QRAccess() {
   const nav = useNavigate();
@@ -25,7 +26,10 @@ export default function QRAccess() {
       </div>
 
       <div className="relative z-10 text-center fade-in max-w-sm w-full">
-        <button onClick={() => nav('/')} className="btn btn-ghost btn-sm mb-8 mx-auto">← Accueil</button>
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <MiniLogo size={28} />
+          <button onClick={() => nav('/')} className="btn btn-ghost btn-sm">← Accueil</button>
+        </div>
 
         <div className="vinyl vinyl-spin mx-auto mb-6" style={{ width: 60, height: 60 }}>
           <div className="vinyl-center" />
