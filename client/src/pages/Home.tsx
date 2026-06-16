@@ -1,4 +1,13 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+const CATEGORIES = [
+  { id: 'geo',      icon: '🌍', label: 'Géo',        color: '#22c55e', active: false },
+  { id: 'musique',  icon: '🎵', label: 'Musique',     color: '#a855f7', active: true  },
+  { id: 'histoire', icon: '📜', label: 'Histoire',    color: '#3b82f6', active: false },
+  { id: 'mots',     icon: '🔍', label: 'Mots rares',  color: '#ec4899', active: false },
+  { id: 'autres',   icon: '💡', label: 'Autres',      color: '#f97316', active: false },
+];
 
 const MODES = [
   {
@@ -57,6 +66,16 @@ const NOTES = [
 
 export default function Home() {
   const nav = useNavigate();
+  const [toast, setToast] = useState<string | null>(null);
+
+  function handleCategoryClick(cat: typeof CATEGORIES[number]) {
+    if (cat.active) {
+      document.getElementById('modes')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setToast(`🚧 ${cat.label} arrive bientôt !`);
+    setTimeout(() => setToast(null), 2200);
+  }
 
   return (
     <div className="min-h-screen bg-app flex flex-col items-center justify-center p-5 relative overflow-hidden">
@@ -109,8 +128,37 @@ export default function Home() {
         </p>
       </div>
 
+      {/* ── Category pills ── */}
+      <div className="relative z-10 flex flex-wrap items-center justify-center gap-2.5 mb-8 fade-in" style={{ animationDelay: '0.15s' }}>
+        {CATEGORIES.map(c => (
+          <button
+            key={c.id}
+            onClick={() => handleCategoryClick(c)}
+            className="group relative flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{
+              background: `${c.color}1a`,
+              borderColor: c.active ? `${c.color}90` : `${c.color}35`,
+              color: c.active ? '#fff' : 'rgba(255,255,255,0.55)',
+              boxShadow: c.active ? `0 0 18px ${c.color}45` : 'none',
+            }}
+          >
+            <span className="text-base">{c.icon}</span>
+            <span>{c.label}</span>
+            {!c.active && <span className="text-[10px] opacity-50">🔒</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl font-semibold text-sm text-white scale-in"
+             style={{ background: 'rgba(20,20,35,0.96)', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
+          {toast}
+        </div>
+      )}
+
       {/* ── Mode cards ── */}
-      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl stagger">
+      <div id="modes" className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-2xl stagger">
         {MODES.map(m => (
           <button
             key={m.path}
