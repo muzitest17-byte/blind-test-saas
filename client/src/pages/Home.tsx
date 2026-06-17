@@ -122,7 +122,7 @@ export default function Home() {
             animation: 'goldShimmer 3.5s ease-in-out infinite',
             textShadow: '0 0 30px rgba(251,191,36,0.25)',
           }}>BLIND</span>
-          <span style={{ background: 'linear-gradient(135deg, #f5f5f5, #d4d4d8, #fafafa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> TEST</span>
+          <span style={{ background: 'linear-gradient(135deg, #f5f5f5, #d4d4d8, #fafafa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> MIX</span>
         </h1>
         <p className="text-sm tracking-[0.35em] uppercase font-medium"
            style={{ background: 'linear-gradient(90deg, #fbbf24, #fde68a, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>

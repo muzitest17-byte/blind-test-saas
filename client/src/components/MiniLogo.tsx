@@ -5,7 +5,7 @@ export default function MiniLogo({ size = 34 }: { size?: number }) {
   return (
     <button
       onClick={() => nav('/')}
-      title="Blind Test — Accueil"
+      title="Blind Mix — Accueil"
       className="relative shrink-0 rounded-full transition-transform duration-150 hover:scale-110 active:scale-95"
       style={{ width: size, height: size }}
     >

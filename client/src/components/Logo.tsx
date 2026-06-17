@@ -35,7 +35,7 @@ export default function Logo() {
              animation: 'goldShimmer 3s ease-in-out infinite',
              textShadow: '0 0 18px rgba(251,191,36,0.25)',
            }}>BLIND</p>
-        <p className="font-display leading-none text-2xl tracking-wide text-white/90" style={{ textShadow: '0 0 14px rgba(255,255,255,0.35)' }}>TEST</p>
+        <p className="font-display leading-none text-2xl tracking-wide text-white/90" style={{ textShadow: '0 0 14px rgba(255,255,255,0.35)' }}>MIX</p>
         <p className="tracking-widest text-[8px] mt-1" style={{ color: 'rgba(251,191,36,0.5)' }}>DE TOUS</p>
       </div>
 
