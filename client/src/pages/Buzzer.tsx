@@ -84,13 +84,13 @@ export default function Buzzer() {
       const me = p.find((x: Player) => x.id === socket.id);
       if (me) setMyScore(me.score);
     });
-    socket.on('game-started', ({ roomDifficulty: rd }) => { setBstate('waiting'); if (rd) setRoomDifficulty(rd); });
+    socket.on('game-started', ({ roomDifficulty: rd }) => { setBstate('ready'); if (rd) setRoomDifficulty(rd); });
     socket.on('new-question', ({ index, total, song }) => {
       setQuestion({ index, total, genre: song?.genre, decade: song?.decade });
-      setRevealed(null); setBuzzedName(''); setBstate('waiting');
+      setRevealed(null); setBuzzedName(''); setBstate('ready');
       setQcmSelected(null); setQcmOptions([]);
       setTimeLeft(0);
-      setListenCountdown(10);
+      setListenCountdown(0);
       shouldPlayRef.current = true; // musique démarre dès le chargement, sans attendre le buzz
       // Clear previous audio immediately so the old song doesn't bleed over
       const audio = audioRef.current;

@@ -414,8 +414,8 @@ io.on('connection', (socket) => {
     const song = room.songs[room.currentQuestion];
     room.currentSong = song;
     room.buzzedPlayerId = null;
-    room.canBuzz = false;
-    room.status = 'question';
+    room.canBuzz = true;
+    room.status = 'playing';
 
     io.to(code).emit('new-question', {
       song: { id: song.id, genre: song.genre, decade: song.decade, difficulty: song.difficulty },
@@ -423,15 +423,8 @@ io.on('connection', (socket) => {
       total: room.songs.length,
     });
 
-    // Auto-activer le buzz après 10s
-    setTimeout(() => {
-      const r = rooms.get(code);
-      if (!r || r.status !== 'question' || r.canBuzz) return;
-      r.canBuzz = true;
-      r.buzzedPlayerId = null;
-      r.status = 'playing';
-      io.to(code).emit('buzz-enabled');
-    }, 10000);
+    // Buzz activé immédiatement avec la question
+    io.to(code).emit('buzz-enabled');
   }
 
   function revealAndNext(code) {
