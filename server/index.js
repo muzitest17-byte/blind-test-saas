@@ -85,6 +85,54 @@ app.get('/api/preview', async (req, res) => {
   }
 });
 
+// ─── Système de codes d'accès ───
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'blindmix-admin-2024';
+const accessCodes = new Set(
+  (process.env.ACCESS_CODES || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean)
+);
+
+function generateAccessCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+// Vérifier un code d'accès
+app.post('/api/access/verify', (req, res) => {
+  const { code } = req.body;
+  if (!code || typeof code !== 'string' || code.length > 20) {
+    return res.status(400).json({ valid: false });
+  }
+  res.json({ valid: accessCodes.has(code.trim().toUpperCase()) });
+});
+
+// Admin : lister les codes
+app.post('/api/access/admin/list', (req, res) => {
+  if (req.body?.adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Non autorisé' });
+  res.json({ codes: [...accessCodes] });
+});
+
+// Admin : créer un code
+app.post('/api/access/admin/create', (req, res) => {
+  if (req.body?.adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Non autorisé' });
+  const code = req.body.code
+    ? req.body.code.trim().toUpperCase()
+    : generateAccessCode();
+  if (code.length < 4 || code.length > 20) return res.status(400).json({ error: 'Code invalide' });
+  accessCodes.add(code);
+  res.json({ code });
+});
+
+// Admin : supprimer un code
+app.post('/api/access/admin/delete', (req, res) => {
+  if (req.body?.adminPassword !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Non autorisé' });
+  const code = req.body.code?.trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: 'Code manquant' });
+  accessCodes.delete(code);
+  res.json({ ok: true });
+});
+
 // Stockage des salles
 const rooms = new Map();
 
