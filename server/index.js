@@ -91,6 +91,34 @@ const accessCodes = new Set(
   (process.env.ACCESS_CODES || '').split(',').map(c => c.trim().toUpperCase()).filter(Boolean)
 );
 
+// Sessions temporaires liées aux parties (invalidées en fin de partie)
+const sessionTokens = new Map(); // token → { roomCode, valid: bool }
+
+function generateSessionToken() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let t = '';
+  for (let i = 0; i < 32; i++) t += chars[Math.floor(Math.random() * chars.length)];
+  return t;
+}
+
+function invalidateRoomSessions(roomCode) {
+  for (const [token, session] of sessionTokens) {
+    if (session.roomCode === roomCode) {
+      session.valid = false;
+      // Nettoyer après 10 minutes
+      setTimeout(() => sessionTokens.delete(token), 10 * 60_000);
+    }
+  }
+}
+
+// Valider un token de session
+app.post('/api/access/session', (req, res) => {
+  const { token } = req.body;
+  if (!token || typeof token !== 'string') return res.json({ valid: false });
+  const session = sessionTokens.get(token);
+  res.json({ valid: session?.valid === true });
+});
+
 function generateAccessCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -233,8 +261,13 @@ io.on('connection', (socket) => {
     socket.data.roomCode = room.code;
     socket.data.isHost = false;
 
+    // Token de session temporaire : valide pendant la partie uniquement
+    const sessionToken = generateSessionToken();
+    sessionTokens.set(sessionToken, { roomCode: room.code, valid: true });
+    socket.data.sessionToken = sessionToken;
+
     io.to(room.code).emit('room-update', { players: room.players, status: room.status });
-    cb({ ok: true, code: room.code });
+    cb({ ok: true, code: room.code, sessionToken });
   });
 
   // ─── Host rejoint en tant que joueur ───
@@ -356,6 +389,7 @@ io.on('connection', (socket) => {
 
     if (room.hostId === socket.id) {
       io.to(code).emit('host-left');
+      invalidateRoomSessions(code);
       rooms.delete(code);
       console.log(`Salle supprimée: ${code}`);
     } else {
@@ -372,6 +406,7 @@ io.on('connection', (socket) => {
       room.status = 'finished';
       const sorted = [...room.players].sort((a, b) => b.score - a.score);
       io.to(code).emit('game-finished', { players: sorted });
+      invalidateRoomSessions(code);
       scheduleRoomCleanup(code);
       return;
     }

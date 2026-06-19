@@ -14,26 +14,33 @@ import AccessGate from './components/AccessGate';
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Page admin : accès par mot de passe séparé, pas de code d'accès */}
-        <Route path="/admin" element={<Admin />} />
-        {/* Toutes les autres pages protégées par code d'accès */}
-        <Route path="/*" element={
-          <AccessGate>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/setup" element={<Setup />} />
-              <Route path="/host/:code" element={<Host />} />
-              <Route path="/join/:code?" element={<Join />} />
-              <Route path="/buzzer/:code" element={<Buzzer />} />
-              <Route path="/career" element={<Career />} />
-              <Route path="/career/play/:campaignId/:levelId" element={<CareerGame />} />
-              <Route path="/free" element={<FreePlay />} />
-              <Route path="/qr" element={<QRAccess />} />
-            </Routes>
-          </AccessGate>
-        } />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
+  );
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Page admin : mot de passe séparé */}
+      <Route path="/admin" element={<Admin />} />
+      {/* /join toujours accessible (point d'entrée QR pour les joueurs) */}
+      <Route path="/join/:code?" element={<Join />} />
+      {/* Toutes les autres pages protégées */}
+      <Route path="/*" element={
+        <AccessGate>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/setup" element={<Setup />} />
+            <Route path="/host/:code" element={<Host />} />
+            <Route path="/buzzer/:code" element={<Buzzer />} />
+            <Route path="/career" element={<Career />} />
+            <Route path="/career/play/:campaignId/:levelId" element={<CareerGame />} />
+            <Route path="/free" element={<FreePlay />} />
+            <Route path="/qr" element={<QRAccess />} />
+          </Routes>
+        </AccessGate>
+      } />
+    </Routes>
   );
 }

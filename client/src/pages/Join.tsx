@@ -15,10 +15,13 @@ export default function Join() {
     if (!code.trim() || !name.trim()) { setError('Remplis les deux champs'); return; }
     setLoading(true); setError('');
     socket.connect();
-    socket.emit('join-room', { code: code.toUpperCase(), name: name.trim() }, (res: { ok?: boolean; error?: string; code?: string }) => {
+    socket.emit('join-room', { code: code.toUpperCase(), name: name.trim() }, (res: { ok?: boolean; error?: string; code?: string; sessionToken?: string }) => {
       setLoading(false);
       if (res.error) { setError(res.error); socket.disconnect(); }
-      else nav(`/buzzer/${res.code}`);
+      else {
+        if (res.sessionToken) localStorage.setItem('blind_mix_session', res.sessionToken);
+        nav(`/buzzer/${res.code}`);
+      }
     });
   }
 

@@ -1,7 +1,12 @@
 import { useState, useEffect, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const BACKEND = (import.meta.env.VITE_BACKEND_URL as string) ?? '';
 const LS_KEY = 'blind_mix_access';
+const SESSION_KEY = 'blind_mix_session';
+
+// Pages accessibles sans code (point d'entrée pour les joueurs QR)
+const PUBLIC_PATHS = ['/join'];
 
 async function verifyCode(code: string): Promise<boolean> {
   try {
@@ -10,29 +15,53 @@ async function verifyCode(code: string): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
     });
-    const data = await res.json();
-    return data.valid === true;
-  } catch {
-    return false;
-  }
+    return (await res.json()).valid === true;
+  } catch { return false; }
+}
+
+async function verifySession(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND}/api/access/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    return (await res.json()).valid === true;
+  } catch { return false; }
 }
 
 export default function AccessGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
   const [status, setStatus] = useState<'checking' | 'locked' | 'open'>('checking');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Pages publiques (join) : toujours ouvertes
+  const isPublic = PUBLIC_PATHS.some(p => location.pathname.startsWith(p));
+
   useEffect(() => {
-    const saved = localStorage.getItem(LS_KEY);
-    if (!saved) { setStatus('locked'); return; }
-    verifyCode(saved).then(valid => setStatus(valid ? 'open' : 'locked'));
-  }, []);
+    if (isPublic) { setStatus('open'); return; }
+
+    async function check() {
+      // 1. Code d'accès permanent
+      const saved = localStorage.getItem(LS_KEY);
+      if (saved && await verifyCode(saved)) { setStatus('open'); return; }
+
+      // 2. Token de session temporaire (joueur rejoint via QR)
+      const session = localStorage.getItem(SESSION_KEY);
+      if (session && await verifySession(session)) { setStatus('open'); return; }
+
+      // Nettoyer la session expirée
+      if (session) localStorage.removeItem(SESSION_KEY);
+      setStatus('locked');
+    }
+    check();
+  }, [location.pathname]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+    setError(''); setLoading(true);
     const trimmed = code.trim().toUpperCase();
     const valid = await verifyCode(trimmed);
     setLoading(false);
@@ -54,7 +83,6 @@ export default function AccessGate({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-app flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Ambient */}
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full"
              style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 65%)' }} />
@@ -63,7 +91,6 @@ export default function AccessGate({ children }: { children: ReactNode }) {
       </div>
 
       <div className="relative z-10 w-full max-w-sm">
-        {/* Logo mini */}
         <div className="flex justify-center mb-8">
           <div className="relative w-20 h-20">
             <div className="absolute inset-0 rounded-full"
@@ -88,20 +115,14 @@ export default function AccessGate({ children }: { children: ReactNode }) {
             maxLength={20}
             autoFocus
             className="w-full px-5 py-4 rounded-2xl text-center text-xl font-black tracking-[0.3em] text-white placeholder-white/25 outline-none"
-            style={{
-              background: 'rgba(255,255,255,0.07)',
-              border: '1px solid rgba(255,255,255,0.15)',
-            }}
+            style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)' }}
           />
           {error && <p className="text-red-400 text-sm text-center">{error}</p>}
           <button
             type="submit"
             disabled={loading || code.trim().length < 4}
             className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 disabled:opacity-40"
-            style={{
-              background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-              boxShadow: '0 0 24px rgba(139,92,246,0.5)',
-            }}
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 0 24px rgba(139,92,246,0.5)' }}
           >
             {loading ? 'Vérification…' : 'Entrer'}
           </button>
