@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { socket } from '../socket';
 import type { Player, Song } from '../types';
-import { genreLabels, genreColors, decadeLabels, songs as allSongs, generateOptions } from '../data/songs';
+import { genreLabels, genreColors, songs as allSongs, generateOptions } from '../data/songs';
 import QCMOptions from '../components/QCMOptions';
 
 type BuzzerState = 'host-lobby' | 'lobby' | 'waiting' | 'ready' | 'buzzed-me' | 'buzzed-other' | 'revealed' | 'finished' | 'wrong';
@@ -28,6 +28,7 @@ export default function Buzzer() {
   const [qcmSelected, setQcmSelected]       = useState<string | null>(null);
   const [qcmCorrectSong, setQcmCorrectSong] = useState<Song | null>(null);
   const [timeLeft, setTimeLeft]             = useState(0);
+  const [listenCountdown, setListenCountdown] = useState(0);
   const [roomDifficulty, setRoomDifficulty] = useState(2);
   const prevScore     = useRef(0);
   const shouldPlayRef = useRef(false);
@@ -35,7 +36,6 @@ export default function Buzzer() {
   const audioRef      = useRef<HTMLAudioElement>(null);
   const wakeLock     = useRef<WakeLockSentinel | null>(null);
 
-  /* Empêche l'écran de s'éteindre */
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     (async () => {
@@ -47,16 +47,6 @@ export default function Buzzer() {
     };
   }, []);
 
-  // Re-apply audio src after bstate change (new <audio> element mounts)
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !previewUrlRef.current) return;
-    audio.src = previewUrlRef.current; audio.volume = 0.8;
-    if (shouldPlayRef.current && (bstate === 'ready')) {
-      audio.play().then(() => setIsPlaying(true)).catch(() => {});
-    }
-  }, [bstate]);
-
   useEffect(() => {
     if (bstate !== 'ready') return;
     if (timeLeft <= 0) return;
@@ -64,12 +54,20 @@ export default function Buzzer() {
     return () => clearTimeout(t);
   }, [bstate, timeLeft]);
 
+  useEffect(() => {
+    if (bstate !== 'waiting') return;
+    if (listenCountdown <= 0) return;
+    const t = setTimeout(() => setListenCountdown(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [bstate, listenCountdown]);
+
   const loadPreview = useCallback(async (deezerQuery: string) => {
     previewUrlRef.current = null; setIsPlaying(false);
     try {
       const r = await fetch(`/api/preview?q=${encodeURIComponent(deezerQuery)}`);
       const d = await r.json();
       previewUrlRef.current = d.preview || null;
+      // audioRef.current is always the same persistent element — safe to use directly
       const audio = audioRef.current;
       if (audio && previewUrlRef.current) {
         audio.src = previewUrlRef.current; audio.volume = 0.8;
@@ -92,7 +90,11 @@ export default function Buzzer() {
       setRevealed(null); setBuzzedName(''); setBstate('waiting');
       setQcmSelected(null); setQcmOptions([]);
       setTimeLeft(0);
-      shouldPlayRef.current = false;
+      setListenCountdown(10);
+      shouldPlayRef.current = true; // musique démarre dès le chargement, sans attendre le buzz
+      // Clear previous audio immediately so the old song doesn't bleed over
+      const audio = audioRef.current;
+      if (audio) { audio.pause(); audio.src = ''; }
       const fullSong = song?.id ? allSongs.find(s => s.id === song.id) : null;
       if (fullSong) {
         setQcmCorrectSong(fullSong);
@@ -104,8 +106,12 @@ export default function Buzzer() {
       setBstate('ready');
       shouldPlayRef.current = true;
       setTimeLeft(DIFFICULTY_TIME[roomDifficulty]);
+      // audioRef.current is the persistent element — always valid here
       const audio = audioRef.current;
-      if (audio && previewUrlRef.current) { audio.play().then(() => setIsPlaying(true)).catch(() => {}); }
+      if (audio && previewUrlRef.current) {
+        audio.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+      // If previewUrlRef is still null (slow network), loadPreview will play when it resolves
     });
     socket.on('player-buzzed', ({ playerId, playerName }) => {
       if (playerId === socket.id) { setBstate('buzzed-me'); vibrate(200); }
@@ -127,9 +133,7 @@ export default function Buzzer() {
       if (playerId === socket.id) {
         vibrate([80, 60, 80]);
         setBstate('wrong');
-        // Pas de 2e chance — reveal-answer arrive juste après depuis le serveur
       }
-      // Pas de re-enable buzz pour les autres non plus
     });
     socket.on('reveal-answer', ({ song, players: p }) => {
       setRevealed(song); setBstate('revealed');
@@ -146,6 +150,11 @@ export default function Buzzer() {
     socket.emit('buzz', { code });
   }, [bstate, code]);
 
+  const submitQCM = useCallback((opt: string) => {
+    setQcmSelected(opt);
+    socket.emit('player-answer', { code, selectedOption: opt });
+  }, [code]);
+
   const gc = question?.genre ? (genreColors[question.genre] || '#a855f7') : '#a855f7';
 
   // ── HOST LOBBY ─────────────────────────────────────────────────────────
@@ -159,18 +168,15 @@ export default function Buzzer() {
     const joinUrl = `${window.location.origin}/join/${code}`;
     return (
       <FullScreen bg="radial-gradient(ellipse at 50% 20%, rgba(124,58,237,0.2), #08090f 60%)">
-        {/* Code */}
         <div className="px-6 py-2.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 font-mono font-bold tracking-widest text-2xl mb-4">
           {code}
         </div>
 
-        {/* QR Code */}
         <div className="bg-white rounded-2xl p-4 mb-4">
           <QRCodeSVG value={joinUrl} size={180} />
         </div>
         <p className="text-white/20 text-xs mb-4 font-mono text-center px-4">{joinUrl}</p>
 
-        {/* Players */}
         <div className="w-full max-w-xs rounded-2xl bg-white/5 border border-white/8 p-4 mb-5 space-y-1">
           <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-3">
             Joueurs ({players.length}/8)
@@ -185,7 +191,6 @@ export default function Buzzer() {
           }
         </div>
 
-        {/* Host name (optional — to also play) */}
         <div className="w-full max-w-xs mb-4">
           <p className="text-xs text-white/25 uppercase tracking-widest text-center mb-2">Tu joues aussi ? (optionnel)</p>
           <input
@@ -230,208 +235,6 @@ export default function Buzzer() {
     </FullScreen>
   );
 
-  // ── WAITING ────────────────────────────────────────────────────────────
-  if (bstate === 'waiting') return (
-    <FullScreen bg="#08090f">
-      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
-      {question && (
-        <div className="px-5 py-3 rounded-2xl text-center mb-6"
-             style={{ background: `${gc}12`, border: `1px solid ${gc}30` }}>
-          <p className="text-white/25 text-xs mb-0.5">Question {question.index}/{question.total}</p>
-          {question.genre && <p className="font-bold text-sm" style={{ color: gc }}>{genreLabels[question.genre]}</p>}
-          {question.decade && <p className="text-white/20 text-xs">{decadeLabels[question.decade]}</p>}
-        </div>
-      )}
-      <div className="vinyl vinyl-spin mb-5" style={{ width: 100, height: 100 }}>
-        <div className="vinyl-center" />
-      </div>
-      <p className="text-white/30 animate-pulse text-lg">🎵 La musique arrive…</p>
-      <ScoreBadge score={myScore} delta={delta} />
-    </FullScreen>
-  );
-
-  // ── READY — gros buzzer plein écran ──────────────────────────────────
-  if (bstate === 'ready') return (
-    <div className="min-h-screen flex flex-col select-none"
-         style={{ background: 'radial-gradient(ellipse at 50% 60%, rgba(220,38,38,0.18), #08090f 70%)' }}>
-      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} />
-
-      {/* Header compact */}
-      <div className="flex items-center justify-between px-5 pt-5 pb-2">
-        <div className="flex items-center gap-2">
-          {isPlaying && (
-            <div className="flex items-end gap-0.5" style={{ height: 16 }}>
-              {[8,14,10,16,9].map((h, i) => (
-                <div key={i} className="eq-bar rounded-sm"
-                     style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
-                              background: `linear-gradient(to top, ${gc}99, ${gc})` }} />
-              ))}
-            </div>
-          )}
-          {question && (
-            <span className="text-xs text-white/30">Q{question.index}/{question.total}</span>
-          )}
-        </div>
-        {timeLeft > 0 && (
-          <span className="font-display text-3xl tabular-nums"
-                style={{ color: timeLeft <= 5 ? '#f87171' : timeLeft <= 10 ? '#fb923c' : '#6ee7b7',
-                         textShadow: timeLeft <= 5 ? '0 0 16px rgba(248,113,113,0.8)' : 'none' }}>
-            {timeLeft}s
-          </span>
-        )}
-      </div>
-
-      {/* Gros bouton BUZZ — occupe tout l'espace restant */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8">
-        <button
-          onPointerDown={doBuzz}
-          className="w-full active:scale-95 transition-transform duration-75 flex flex-col items-center justify-center gap-4"
-          style={{
-            touchAction: 'none',
-            WebkitTapHighlightColor: 'transparent',
-            height: '60vmax',
-            maxHeight: 420,
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 50% 45%, rgba(220,38,38,0.45), rgba(185,28,28,0.15))',
-            border: '3px solid rgba(239,68,68,0.6)',
-            boxShadow: '0 0 60px rgba(220,38,38,0.4), 0 0 120px rgba(220,38,38,0.15), inset 0 0 40px rgba(220,38,38,0.1)',
-          }}>
-          <span style={{ fontSize: '4rem' }}>🔔</span>
-          <span className="font-display text-white tracking-widest" style={{ fontSize: '2.5rem' }}>BUZZ</span>
-        </button>
-        {isHost && (
-          <button
-            onClick={() => socket.emit('skip-question', { code })}
-            className="mt-3 text-white/20 hover:text-white/50 text-sm transition-colors">
-            ⏭ Passer la question
-          </button>
-        )}
-        <ScoreBadge score={myScore} delta={delta} />
-      </div>
-    </div>
-  );
-
-  // ── BUZZÉ MOI — QCM pour répondre ────────────────────────────────────
-  if (bstate === 'buzzed-me') {
-    const submitQCM = (opt: string) => {
-      setQcmSelected(opt);
-      socket.emit('player-answer', { code, selectedOption: opt });
-    };
-    return (
-      <div className="min-h-screen flex flex-col p-5"
-           style={{ background: 'radial-gradient(ellipse at 50% 30%, #2d0f00, #08090f 65%)' }}>
-        <audio ref={audioRef} />
-
-        {/* Badge buzzé */}
-        <div className="flex flex-col items-center pt-6 pb-4">
-          <div className="relative mb-3">
-            <div className="w-20 h-20 rounded-full border-2 border-orange-400/60 flex items-center justify-center"
-                 style={{ background: 'rgba(251,146,60,0.15)', boxShadow: '0 0 40px rgba(251,146,60,0.4)' }}>
-              <span className="text-4xl">🔔</span>
-            </div>
-            <div className="absolute inset-0 rounded-full border border-orange-400/40 animate-ping" />
-          </div>
-          <h2 className="font-display text-4xl mb-1"
-              style={{ color: '#fb923c', textShadow: '0 0 30px rgba(251,146,60,0.7)' }}>
-            TU AS BUZZÉ !
-          </h2>
-          <p className="text-white/35 text-sm">Choisis ta réponse :</p>
-        </div>
-
-        {/* QCM */}
-        {qcmOptions.length > 0 ? (
-          <div className="flex-1">
-            <QCMOptions
-              options={qcmOptions}
-              correctOption={qcmCorrectSong ? `${qcmCorrectSong.title} — ${qcmCorrectSong.artist}` : ''}
-              selected={qcmSelected}
-              onSelect={submitQCM}
-            />
-          </div>
-        ) : (
-          <p className="text-white/30 text-center flex-1 flex items-center justify-center">
-            Donne ta réponse à l'hôte
-          </p>
-        )}
-
-        <ScoreBadge score={myScore} delta={delta} />
-      </div>
-    );
-  }
-
-  // ── BUZZÉ AUTRE ────────────────────────────────────────────────────────
-  if (bstate === 'buzzed-other') return (
-    <FullScreen bg="radial-gradient(ellipse at 50% 35%, #1a1200, #08090f 70%)">
-      <audio ref={audioRef} />
-      <div className="relative mb-5">
-        <div className="w-36 h-36 rounded-full border-2 border-yellow-400/60 flex items-center justify-center"
-             style={{ background: 'rgba(250,204,21,0.12)', boxShadow: '0 0 60px rgba(250,204,21,0.35), 0 0 120px rgba(250,204,21,0.12)' }}>
-          <span className="text-6xl">🔔</span>
-        </div>
-        <div className="absolute inset-0 rounded-full border border-yellow-400/40 animate-ping" />
-      </div>
-      <h2 className="font-display text-5xl text-center px-4 mb-2"
-          style={{ color: '#fde047', textShadow: '0 0 40px rgba(250,204,21,0.6)' }}>
-        {buzzedName}
-      </h2>
-      <p className="text-white/40 text-xl font-bold tracking-wide">A BUZZÉ !</p>
-      <p className="text-white/20 text-sm mt-3 animate-pulse">En attente de sa réponse…</p>
-      <ScoreBadge score={myScore} delta={delta} />
-    </FullScreen>
-  );
-
-  // ── MAUVAISE RÉPONSE ───────────────────────────────────────────────────
-  if (bstate === 'wrong') return (
-    <FullScreen bg="radial-gradient(ellipse at 50% 40%, #1a0000, #08090f 70%)">
-      <audio ref={audioRef} />
-      <span className="text-8xl mb-4 pop">❌</span>
-      <h2 className="font-display text-7xl mb-2"
-          style={{ color: '#f87171', textShadow: '0 0 30px rgba(239,68,68,0.6)' }}>
-        FAUX !
-      </h2>
-      <p className="text-white/30 text-lg">−25 points</p>
-      <p className="text-white/15 text-sm mt-6 animate-pulse">Rebuzze si tu connais…</p>
-    </FullScreen>
-  );
-
-  // ── RÉPONSE RÉVÉLÉE ────────────────────────────────────────────────────
-  if (bstate === 'revealed' && revealed) return (
-    <FullScreen bg="#08090f">
-      <audio ref={audioRef} />
-      <div className="vinyl mb-5" style={{ width: 80, height: 80, opacity: 0.5 }}>
-        <div className="vinyl-center" />
-      </div>
-      <p className="text-white/25 text-xs uppercase tracking-widest mb-3">C'était…</p>
-      <h2 className="font-display text-5xl text-white text-center px-5 mb-1"
-          style={{ textShadow: '0 0 30px rgba(139,92,246,0.5)' }}>
-        {revealed.title}
-      </h2>
-      <p className="text-purple-300 font-semibold text-xl">{revealed.artist}</p>
-      <p className="text-white/20 mt-1">{revealed.year}</p>
-      {qcmOptions.length > 0 && (
-        <div className="w-full max-w-sm mt-5 px-4">
-          <QCMOptions
-            options={qcmOptions}
-            correctOption={`${revealed.title} — ${revealed.artist}`}
-            selected={qcmSelected ?? `${revealed.title} — ${revealed.artist}`}
-            onSelect={() => {}}
-          />
-        </div>
-      )}
-      {isHost ? (
-        <button
-          onClick={() => socket.emit('skip-question', { code })}
-          className="mt-5 px-10 py-4 rounded-2xl font-display text-xl tracking-widest text-white active:scale-95 transition-all"
-          style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 0 25px rgba(139,92,246,0.4)' }}>
-          SUIVANT →
-        </button>
-      ) : (
-        <p className="text-white/15 text-xs mt-5 animate-pulse">Prochaine question…</p>
-      )}
-      <ScoreBadge score={myScore} delta={delta} />
-    </FullScreen>
-  );
-
   // ── FIN ────────────────────────────────────────────────────────────────
   if (bstate === 'finished') {
     const sorted = [...players].sort((a, b) => b.score - a.score);
@@ -464,7 +267,242 @@ export default function Buzzer() {
     );
   }
 
-  return null;
+  // ── ÉTATS DE JEU — audio persistant, jamais démonté entre états ───────
+  return (
+    <>
+      {/* Un seul élément audio partagé par tous les états de jeu */}
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} style={{ display: 'none' }} />
+
+      {/* WAITING — bouton visible dès le début, désactivé avec countdown */}
+      {bstate === 'waiting' && (
+        <div className="min-h-screen flex flex-col select-none"
+             style={{ background: 'radial-gradient(ellipse at 50% 45%, #1e0308, #08090f 75%)' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-2">
+            <div className="flex items-center gap-2">
+              {isPlaying && (
+                <div className="flex items-end gap-0.5" style={{ height: 16 }}>
+                  {[8,14,10,16,9].map((h, i) => (
+                    <div key={i} className="eq-bar rounded-sm"
+                         style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
+                                  background: 'linear-gradient(to top, #8B000099, #DC143C)' }} />
+                  ))}
+                </div>
+              )}
+              {question && <span className="text-xs text-white/30">Q{question.index}/{question.total}</span>}
+            </div>
+            {question?.genre && (
+              <span className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ background: `${gc}20`, color: gc, border: `1px solid ${gc}40` }}>
+                {genreLabels[question.genre]}
+              </span>
+            )}
+          </div>
+
+          {/* Bouton désactivé avec countdown arménien */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 pb-4">
+            {/* Anneau décoratif arménien */}
+            <div style={{
+              borderRadius: '50%', padding: 10,
+              background: 'conic-gradient(#7a6000 0deg, #3d0a12 40deg, #7a6000 80deg, #0d2a5e 120deg, #7a6000 160deg, #3d0a12 200deg, #7a6000 240deg, #0d2a5e 280deg, #7a6000 320deg, #3d0a12 360deg)',
+              boxShadow: '0 0 20px rgba(122,96,0,0.2)',
+            }}>
+              <div style={{ borderRadius: '50%', padding: 8, background: '#0d0206' }}>
+                <div style={{
+                  width: '62vmin', height: '62vmin', maxWidth: 310, maxHeight: 310,
+                  borderRadius: '50%',
+                  background: 'radial-gradient(ellipse at 40% 35%, #3a1018, #1e0610 50%, #110208)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: 'inset 0 0 40px rgba(0,0,0,0.6)',
+                }}>
+                  <span style={{
+                    fontFamily: 'var(--font-display, sans-serif)', fontSize: '1.4rem',
+                    letterSpacing: '0.25em', color: 'rgba(184,151,26,0.35)',
+                  }}>
+                    BUZZ
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p className="text-white/25 text-xs uppercase tracking-widest">🎵 Écoute avant de buzzer</p>
+            <ScoreBadge score={myScore} delta={delta} />
+          </div>
+        </div>
+      )}
+
+      {/* READY — buzzer arménien actif */}
+      {bstate === 'ready' && (
+        <div className="min-h-screen flex flex-col select-none"
+             style={{ background: 'radial-gradient(ellipse at 50% 45%, #2d0508, #08090f 75%)' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-2">
+            <div className="flex items-center gap-2">
+              {isPlaying && (
+                <div className="flex items-end gap-0.5" style={{ height: 16 }}>
+                  {[8,14,10,16,9].map((h, i) => (
+                    <div key={i} className="eq-bar rounded-sm"
+                         style={{ height: h, width: 3, animationDelay: `${i * 0.1}s`,
+                                  background: 'linear-gradient(to top, #DC143C99, #FF6B35)' }} />
+                  ))}
+                </div>
+              )}
+              {question && <span className="text-xs text-white/30">Q{question.index}/{question.total}</span>}
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 pb-4">
+            {/* Anneau décoratif arménien — couleurs vives */}
+            <div style={{
+              borderRadius: '50%', padding: 10,
+              background: 'conic-gradient(#FFD700 0deg, #DC143C 40deg, #FFD700 80deg, #1B5E9E 120deg, #FFD700 160deg, #DC143C 200deg, #FFD700 240deg, #1B5E9E 280deg, #FFD700 320deg, #DC143C 360deg)',
+              boxShadow: '0 0 60px rgba(220,20,60,0.55), 0 0 120px rgba(220,20,60,0.2), 0 0 0 3px rgba(255,215,0,0.25)',
+              animation: 'armpulse 2s ease-in-out infinite',
+            }}>
+              <div style={{ borderRadius: '50%', padding: 8, background: '#0d0206' }}>
+                <button
+                  onPointerDown={doBuzz}
+                  className="active:scale-90 transition-transform duration-75"
+                  style={{
+                    touchAction: 'none', WebkitTapHighlightColor: 'transparent',
+                    width: '62vmin', height: '62vmin', maxWidth: 310, maxHeight: 310,
+                    borderRadius: '50%', border: 'none', cursor: 'pointer',
+                    background: 'radial-gradient(ellipse at 38% 32%, #FF8C50, #DC143C 40%, #8B0000 70%, #4a0010)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    boxShadow: 'inset 0 -10px 25px rgba(0,0,0,0.45), inset 0 5px 15px rgba(255,120,60,0.3)',
+                  }}>
+                  <span style={{ fontSize: '3rem', filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.6))' }}>🔔</span>
+                  <span style={{
+                    fontFamily: 'var(--font-display, sans-serif)', fontSize: '2.4rem',
+                    letterSpacing: '0.2em', color: '#FFD700',
+                    textShadow: '0 0 25px rgba(255,215,0,0.9), 0 2px 6px rgba(0,0,0,0.6)',
+                  }}>
+                    BUZZ
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {isHost && (
+              <button
+                onClick={() => socket.emit('skip-question', { code })}
+                className="text-white/20 hover:text-white/50 text-sm transition-colors">
+                ⏭ Passer la question
+              </button>
+            )}
+            <ScoreBadge score={myScore} delta={delta} />
+          </div>
+        </div>
+      )}
+
+      {/* BUZZED-ME */}
+      {bstate === 'buzzed-me' && (
+        <div className="min-h-screen flex flex-col p-5"
+             style={{ background: 'radial-gradient(ellipse at 50% 30%, #2d0f00, #08090f 65%)' }}>
+          <div className="flex flex-col items-center pt-6 pb-4">
+            <div className="relative mb-3">
+              <div className="w-20 h-20 rounded-full border-2 border-orange-400/60 flex items-center justify-center"
+                   style={{ background: 'rgba(251,146,60,0.15)', boxShadow: '0 0 40px rgba(251,146,60,0.4)' }}>
+                <span className="text-4xl">🔔</span>
+              </div>
+              <div className="absolute inset-0 rounded-full border border-orange-400/40 animate-ping" />
+            </div>
+            <h2 className="font-display text-4xl mb-1"
+                style={{ color: '#fb923c', textShadow: '0 0 30px rgba(251,146,60,0.7)' }}>
+              TU AS BUZZÉ !
+            </h2>
+            <p className="text-white/35 text-sm">Choisis ta réponse :</p>
+          </div>
+
+          {qcmOptions.length > 0 ? (
+            <div className="flex-1">
+              <QCMOptions
+                options={qcmOptions}
+                correctOption={qcmCorrectSong ? `${qcmCorrectSong.title} — ${qcmCorrectSong.artist}` : ''}
+                selected={qcmSelected}
+                onSelect={submitQCM}
+              />
+            </div>
+          ) : (
+            <p className="text-white/30 text-center flex-1 flex items-center justify-center">
+              Donne ta réponse à l'hôte
+            </p>
+          )}
+
+          <ScoreBadge score={myScore} delta={delta} />
+        </div>
+      )}
+
+      {/* BUZZED-OTHER */}
+      {bstate === 'buzzed-other' && (
+        <FullScreen bg="radial-gradient(ellipse at 50% 35%, #1a1200, #08090f 70%)">
+          <div className="relative mb-5">
+            <div className="w-36 h-36 rounded-full border-2 border-yellow-400/60 flex items-center justify-center"
+                 style={{ background: 'rgba(250,204,21,0.12)', boxShadow: '0 0 60px rgba(250,204,21,0.35), 0 0 120px rgba(250,204,21,0.12)' }}>
+              <span className="text-6xl">🔔</span>
+            </div>
+            <div className="absolute inset-0 rounded-full border border-yellow-400/40 animate-ping" />
+          </div>
+          <h2 className="font-display text-5xl text-center px-4 mb-2"
+              style={{ color: '#fde047', textShadow: '0 0 40px rgba(250,204,21,0.6)' }}>
+            {buzzedName}
+          </h2>
+          <p className="text-white/40 text-xl font-bold tracking-wide">A BUZZÉ !</p>
+          <p className="text-white/20 text-sm mt-3 animate-pulse">En attente de sa réponse…</p>
+          <ScoreBadge score={myScore} delta={delta} />
+        </FullScreen>
+      )}
+
+      {/* WRONG */}
+      {bstate === 'wrong' && (
+        <FullScreen bg="radial-gradient(ellipse at 50% 40%, #1a0000, #08090f 70%)">
+          <span className="text-8xl mb-4 pop">❌</span>
+          <h2 className="font-display text-7xl mb-2"
+              style={{ color: '#f87171', textShadow: '0 0 30px rgba(239,68,68,0.6)' }}>
+            FAUX !
+          </h2>
+          <p className="text-white/30 text-lg">−25 points</p>
+          <p className="text-white/15 text-sm mt-6 animate-pulse">La bonne réponse arrive…</p>
+        </FullScreen>
+      )}
+
+      {/* REVEALED */}
+      {bstate === 'revealed' && revealed && (
+        <FullScreen bg="#08090f">
+          <div className="vinyl mb-5" style={{ width: 80, height: 80, opacity: 0.5 }}>
+            <div className="vinyl-center" />
+          </div>
+          <p className="text-white/25 text-xs uppercase tracking-widest mb-3">C'était…</p>
+          <h2 className="font-display text-5xl text-white text-center px-5 mb-1"
+              style={{ textShadow: '0 0 30px rgba(139,92,246,0.5)' }}>
+            {revealed.title}
+          </h2>
+          <p className="text-purple-300 font-semibold text-xl">{revealed.artist}</p>
+          <p className="text-white/20 mt-1">{revealed.year}</p>
+          {qcmOptions.length > 0 && (
+            <div className="w-full max-w-sm mt-5 px-4">
+              <QCMOptions
+                options={qcmOptions}
+                correctOption={`${revealed.title} — ${revealed.artist}`}
+                selected={qcmSelected ?? `${revealed.title} — ${revealed.artist}`}
+                onSelect={() => {}}
+              />
+            </div>
+          )}
+          {isHost ? (
+            <button
+              onClick={() => socket.emit('skip-question', { code })}
+              className="mt-5 px-10 py-4 rounded-2xl font-display text-xl tracking-widest text-white active:scale-95 transition-all"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)', boxShadow: '0 0 25px rgba(139,92,246,0.4)' }}>
+              SUIVANT →
+            </button>
+          ) : (
+            <p className="text-white/15 text-xs mt-5 animate-pulse">Prochaine question…</p>
+          )}
+          <ScoreBadge score={myScore} delta={delta} />
+        </FullScreen>
+      )}
+    </>
+  );
 }
 
 /* ── Helpers ────────────────────────────────────────────── */
