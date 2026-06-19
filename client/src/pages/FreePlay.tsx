@@ -10,14 +10,14 @@ const ALL_GENRES = Object.keys(genreLabels) as Genre[];
 const ALL_DECADES = Object.keys(decadeLabels) as Decade[];
 
 const DIFFICULTIES = [
-  { max: 1, label: 'Novice',    emoji: '😊', color: '#10b981', time: 30 },
-  { max: 2, label: 'Amateur',   emoji: '😄', color: '#3b82f6', time: 20 },
-  { max: 3, label: 'Interméd.', emoji: '😐', color: '#f59e0b', time: 15 },
+  { max: 1, label: 'Novice',    emoji: '😊', color: '#10b981', time: 10 },
+  { max: 2, label: 'Amateur',   emoji: '😄', color: '#3b82f6', time: 10 },
+  { max: 3, label: 'Interméd.', emoji: '😐', color: '#f59e0b', time: 10 },
   { max: 4, label: 'Expert',    emoji: '😤', color: '#ef4444', time: 10 },
   { max: 5, label: 'Maître',    emoji: '🔥', color: '#a855f7', time: 10 },
 ];
 
-const DIFFICULTY_TIME: Record<number, number> = { 1: 30, 2: 20, 3: 15, 4: 10, 5: 10 };
+const DIFFICULTY_TIME: Record<number, number> = { 1: 10, 2: 10, 3: 10, 4: 10, 5: 10 };
 
 interface Config { genres: Genre[]; decades: Decade[]; difficulty: number; count: number; qcm: boolean }
 interface Delta { id: number; text: string; positive: boolean }
@@ -630,20 +630,6 @@ function GameScreen({ config, onRestart, onHome }: { config: Config; onRestart: 
                 ))}
               </div>
 
-              <div className="w-full">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-white/35 uppercase tracking-widest">Temps</span>
-                  <span className={`text-2xl font-black tabular-nums ${urgent ? 'text-red-400 animate-pulse' : 'text-white'}`}>{timeLeft}s</span>
-                </div>
-                <div className="pbar">
-                  <div className="pbar-fill" style={{
-                    width: `${timerPct}%`,
-                    background: urgent ? '#ef4444' : timeLeft <= 7 ? '#f59e0b' : '#22d3ee',
-                    boxShadow: urgent ? '0 0 12px rgba(239,68,68,0.8)' : '0 0 8px rgba(34,211,238,0.5)',
-                    transition: 'width 1s linear, background 0.3s',
-                  }} />
-                </div>
-              </div>
             </div>
           )}
         </div>
