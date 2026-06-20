@@ -92,7 +92,14 @@ export default function Host() {
         loadPreview(song as Song);
       }
     });
-    socket.on('buzz-enabled', () => setPhase('listening'));
+    socket.on('buzz-enabled', () => {
+      setPhase('listening');
+      autoPlayRef.current = true;
+      skipFiredRef.current = false;
+      setTimeLeft(DIFFICULTY_TIME[roomDifficulty]);
+      const a = audioRef.current;
+      if (a && a.src) { a.play().then(() => setIsPlaying(true)).catch(() => {}); }
+    });
     socket.on('player-buzzed', ({ playerId, playerName }) => {
       setBuzzedPlayer({ id: playerId, name: playerName });
       setPhase('buzzed');

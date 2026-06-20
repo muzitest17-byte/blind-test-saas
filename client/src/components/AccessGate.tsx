@@ -131,6 +131,11 @@ export default function AccessGate({ children }: { children: ReactNode }) {
         <p className="text-center text-white/25 text-xs mt-8">
           🔒 Application privée · Blind Mix
         </p>
+        <p className="text-center mt-4">
+          <a href="/join" className="text-purple-400/60 hover:text-purple-400 text-xs underline transition-colors">
+            Rejoindre une partie via QR code →
+          </a>
+        </p>
       </div>
     </div>
   );

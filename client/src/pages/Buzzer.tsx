@@ -28,7 +28,6 @@ export default function Buzzer() {
   const [qcmSelected, setQcmSelected]       = useState<string | null>(null);
   const [qcmCorrectSong, setQcmCorrectSong] = useState<Song | null>(null);
   const [timeLeft, setTimeLeft]             = useState(0);
-  const [listenCountdown, setListenCountdown] = useState(0);
   const [roomDifficulty, setRoomDifficulty] = useState(2);
   const prevScore     = useRef(0);
   const shouldPlayRef = useRef(false);
@@ -54,12 +53,6 @@ export default function Buzzer() {
     return () => clearTimeout(t);
   }, [bstate, timeLeft]);
 
-  useEffect(() => {
-    if (bstate !== 'waiting') return;
-    if (listenCountdown <= 0) return;
-    const t = setTimeout(() => setListenCountdown(s => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [bstate, listenCountdown]);
 
   const loadPreview = useCallback(async (deezerQuery: string) => {
     previewUrlRef.current = null; setIsPlaying(false);
@@ -90,7 +83,6 @@ export default function Buzzer() {
       setRevealed(null); setBuzzedName(''); setBstate('ready');
       setQcmSelected(null); setQcmOptions([]);
       setTimeLeft(0);
-      setListenCountdown(0);
       shouldPlayRef.current = true; // musique démarre dès le chargement, sans attendre le buzz
       // Clear previous audio immediately so the old song doesn't bleed over
       const audio = audioRef.current;
@@ -125,7 +117,7 @@ export default function Buzzer() {
         if (d !== 0) { setDelta(d); setTimeout(() => setDelta(null), 2500); }
         setMyScore(me.score); prevScore.current = me.score;
       }
-      if (playerId !== socket.id) setBstate('waiting');
+      if (playerId !== socket.id) setBstate('buzzed-other');
     });
     socket.on('answer-wrong', ({ playerId, players: p }) => {
       const me = p.find((x: Player) => x.id === socket.id);

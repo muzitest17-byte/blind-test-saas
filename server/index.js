@@ -126,8 +126,10 @@ function generateAccessCode() {
   return code;
 }
 
-// Vérifier un code d'accès
+// Vérifier un code d'accès (rate-limité)
 app.post('/api/access/verify', (req, res) => {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+  if (isRateLimited(ip, 20)) return res.status(429).json({ valid: false });
   const { code } = req.body;
   if (!code || typeof code !== 'string' || code.length > 20) {
     return res.status(400).json({ valid: false });
@@ -208,6 +210,7 @@ function shuffle(arr) {
 // Nettoyage des salles terminées après 5 minutes
 function scheduleRoomCleanup(code) {
   setTimeout(() => {
+    invalidateRoomSessions(code);
     rooms.delete(code);
     console.log(`Salle nettoyée: ${code}`);
   }, 5 * 60_000);
@@ -306,8 +309,8 @@ io.on('connection', (socket) => {
   socket.on('enable-buzz', ({ code }) => {
     const room = rooms.get(code);
     if (!room || room.hostId !== socket.id) return;
+    if (room.buzzedPlayerId) return; // ne pas écraser un buzz déjà enregistré
     room.canBuzz = true;
-    room.buzzedPlayerId = null;
     room.status = 'playing';
     io.to(code).emit('buzz-enabled');
   });

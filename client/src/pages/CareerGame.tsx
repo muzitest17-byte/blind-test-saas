@@ -74,6 +74,11 @@ export default function CareerGame() {
     return () => a.removeEventListener('timeupdate', onTime);
   }, [previewUrl]);
 
+  useEffect(() => {
+    const a = audioRef.current;
+    return () => { a?.pause(); };
+  }, []);
+
   function play() {
     const a = audioRef.current;
     if (!a || !previewUrl) return;

@@ -343,6 +343,11 @@ function GameScreen({ config, onRestart, onHome }: { config: Config; onRestart: 
     a.src = previewUrl; a.volume = 0.8;
   }, [previewUrl]);
 
+  useEffect(() => {
+    const a = audioRef.current;
+    return () => { a?.pause(); };
+  }, []);
+
   function play() {
     const a = audioRef.current; if (!a || !previewUrl) return;
     const limit = DIFFICULTY_TIME[song?.difficulty ?? 1] ?? 30;
@@ -448,9 +453,6 @@ function GameScreen({ config, onRestart, onHome }: { config: Config; onRestart: 
   }
 
   const songColor = song ? (genreColors[song.genre] || '#06b6d4') : '#06b6d4';
-  const limit = DIFFICULTY_TIME[song?.difficulty ?? 1] ?? 30;
-  const timerPct = (timeLeft / limit) * 100;
-  const urgent = timeLeft <= 3;
   const isLast = qi + 1 >= queue.length;
 
   return (
