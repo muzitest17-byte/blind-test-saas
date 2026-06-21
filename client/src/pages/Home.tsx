@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo';
+import MixingBoard from '../components/MixingBoard';
 
 const CATEGORIES = [
   { id: 'geo',      icon: '🌍', label: 'Géo',        color: '#22c55e', active: false },
@@ -80,6 +81,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-app flex flex-col items-center justify-center p-5 relative overflow-hidden">
+
+      {/* ── Table de mixage animée ── */}
+      <MixingBoard />
 
       {/* ── Ambient lights ── */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
