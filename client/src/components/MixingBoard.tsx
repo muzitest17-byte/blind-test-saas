@@ -4,7 +4,7 @@ export default function MixingBoard() {
       <svg
         viewBox="0 0 900 420"
         preserveAspectRatio="xMidYMax meet"
-        style={{ width: '100%', maxWidth: 1100, opacity: 0.13, filter: 'blur(0.3px)' }}
+        style={{ width: '100%', maxWidth: 1100, opacity: 0.28, filter: 'blur(0.2px)' }}
       >
         <style>{`
           @keyframes spin-left  { from { transform: rotate(0deg);   } to { transform: rotate(360deg);  } }
